@@ -1,0 +1,12 @@
+<div class="tab-panel active" id="tabMonthly"><div class="panel">
+<h2>Monthly Learning</h2>
+<p>Update customer clusters and predict qualifying activity decline in the following month. Initial setup needs historical raw files; later runs can ingest new or overlapping deliveries.</p>
+<label for="monthlyMonth">Last complete observation month (YYYY-MM)</label>
+<input id="monthlyMonth" type="month">
+<label>Order source</label><input id="monthlyOrder" value="{{ defaults.standards.ARPU_CLV_GROWTH.path }}">
+<label>Data source</label><input id="monthlyData" value="{{ defaults.standards.DATA_USAGE.path }}">
+<label>Voice source (pipe-delimited)</label><input id="monthlyVoice" value="{{ defaults.standards.VOICE_USAGE.path }}">
+<label style="display:flex;align-items:center;gap:8px"><input id="monthlyComplete" type="checkbox" style="width:auto">All three feeds are complete through this observation month</label>
+<p class="hint">Confirm only after the company delivered all activity for that month. Missing feeds must not be interpreted as inactive customers. Historical data is stored in the outputs folder. Exact overlapping events are reused. Orders with Id support corrections; unkeyed corrected voice/data events need a history rebuild.</p>
+<button id="runMonthlyBtn" class="run-btn">Run Monthly Update</button>
+</div><div id="monthlyStatusArea"></div><div id="monthlyResultsArea"></div></div>

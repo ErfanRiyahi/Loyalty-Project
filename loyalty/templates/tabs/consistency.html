@@ -1,0 +1,61 @@
+  <div class="tab-panel" id="tabCI">
+    <div class="panel">
+      <label>Backend API URL</label>
+      <input type="text" id="ciApiUrl" value="/consistency_index">
+      <div class="hint">Consistency Index needs 4 datasets — one per domain — each with 3 columns (e.g. MSISDN, date, value). Leave a dataset address blank to use the backend's default file for that domain.</div>
+
+      <div class="domain-block">
+        <div class="domain-title"><span class="domain-tag">Data</span> Data usage domain</div>
+        <label>Dataset address</label>
+        <input type="text" class="ci-address" data-domain="data" placeholder="{{ defaults.ci["data"].path }}" value="{{ defaults.ci["data"].path }}">
+        <label>Columns (3, in order)</label>
+        <div class="domain-cols">
+          <input type="text" class="ci-col" data-domain="data" data-col="0" placeholder="{{ defaults.ci["data"].columns[0] }}" value="{{ defaults.ci["data"].columns[0] }}">
+          <input type="text" class="ci-col" data-domain="data" data-col="1" placeholder="{{ defaults.ci["data"].columns[1] }}" value="{{ defaults.ci["data"].columns[1] }}">
+          <input type="text" class="ci-col" data-domain="data" data-col="2" placeholder="{{ defaults.ci["data"].columns[2] }}" value="{{ defaults.ci["data"].columns[2] }}">
+        </div>
+      </div>
+
+      <div class="domain-block">
+        <div class="domain-title"><span class="domain-tag">Voice</span> Voice domain</div>
+        <label>Dataset address</label>
+        <input type="text" class="ci-address" data-domain="voice" placeholder="{{ defaults.ci["voice"].path }}" value="{{ defaults.ci["voice"].path }}">
+        <label>Columns (3, in order)</label>
+        <div class="domain-cols">
+          <input type="text" class="ci-col" data-domain="voice" data-col="0" placeholder="{{ defaults.ci["voice"].columns[0] }}" value="{{ defaults.ci["voice"].columns[0] }}">
+          <input type="text" class="ci-col" data-domain="voice" data-col="1" placeholder="{{ defaults.ci["voice"].columns[1] }}" value="{{ defaults.ci["voice"].columns[1] }}">
+          <input type="text" class="ci-col" data-domain="voice" data-col="2" placeholder="{{ defaults.ci["voice"].columns[2] }}" value="{{ defaults.ci["voice"].columns[2] }}">
+        </div>
+      </div>
+
+      <div class="domain-block">
+        <div class="domain-title"><span class="domain-tag">Spend</span> Spend domain</div>
+        <label>Dataset address</label>
+        <input type="text" class="ci-address" data-domain="spend" placeholder="{{ defaults.ci["spend"].path }}" value="{{ defaults.ci["spend"].path }}">
+        <label>Columns (3, in order)</label>
+        <div class="domain-cols">
+          <input type="text" class="ci-col" data-domain="spend" data-col="0" placeholder="{{ defaults.ci["spend"].columns[0] }}" value="{{ defaults.ci["spend"].columns[0] }}">
+          <input type="text" class="ci-col" data-domain="spend" data-col="1" placeholder="{{ defaults.ci["spend"].columns[1] }}" value="{{ defaults.ci["spend"].columns[1] }}">
+          <input type="text" class="ci-col" data-domain="spend" data-col="2" placeholder="{{ defaults.ci["spend"].columns[2] }}" value="{{ defaults.ci["spend"].columns[2] }}">
+        </div>
+      </div>
+
+      <div class="domain-block">
+        <div class="domain-title"><span class="domain-tag">Txn</span> Transaction frequency domain</div>
+        <label>Dataset address</label>
+        <input type="text" class="ci-address" data-domain="txn" placeholder="{{ defaults.ci["txn"].path }}" value="{{ defaults.ci["txn"].path }}">
+        <label>Columns (3, in order)</label>
+        <div class="domain-cols">
+          <input type="text" class="ci-col" data-domain="txn" data-col="0" placeholder="{{ defaults.ci["txn"].columns[0] }}" value="{{ defaults.ci["txn"].columns[0] }}">
+          <input type="text" class="ci-col" data-domain="txn" data-col="1" placeholder="{{ defaults.ci["txn"].columns[1] }}" value="{{ defaults.ci["txn"].columns[1] }}">
+          <input type="text" class="ci-col" data-domain="txn" data-col="2" placeholder="{{ defaults.ci["txn"].columns[2] }}" value="{{ defaults.ci["txn"].columns[2] }}">
+        </div>
+      </div>
+
+      <button class="run-btn" id="runCIBtn" type="button">Run Consistency Index</button>
+    </div>
+
+    <div id="ciStatusArea"></div>
+    <div id="ciResultsArea"></div>
+  </div>
+

@@ -1,0 +1,19 @@
+  <div class="tab-panel" id="tabDS">
+    <div class="panel">
+      <label>Backend API URL</label>
+      <input type="text" id="dsApiUrl" value="/dataset_overview">
+      <div class="hint">Just point at a dataset to get a quick profile: shape, column types, missing values, and distributions for numeric columns.</div>
+
+      <label>Dataset address</label>
+      <input type="text" id="dsDatasetAddress" placeholder="{{ defaults.standards.ARPU_CLV_GROWTH.path }}" value="{{ defaults.standards.ARPU_CLV_GROWTH.path }}">
+
+      <label>Columns to read (optional)</label>
+      <input type="text" id="dsColumns" placeholder="Leave blank to read all columns, or comma-separate: MSISDN, PaidDateUtc, OrderTotal">
+
+      <button class="run-btn" id="runDSBtn" type="button">Run</button>
+    </div>
+
+    <div id="dsStatusArea"></div>
+    <div id="dsResultsArea"></div>
+  </div>
+

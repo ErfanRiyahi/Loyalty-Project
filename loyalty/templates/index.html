@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Customer Loyalty Dashboard</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <h1>Customer Loyalty Dashboard</h1>
+  <div class="sub">Run Monthly Learning when new company data arrives. Review stable cluster IDs, peer scores, and next-month activity decline.</div>
+
+  <div class="tabs">
+    <button class="tab-btn" id="tabBtnStandard" type="button">Standard Scoring</button>
+    <button class="tab-btn" id="tabBtnCI" type="button">Consistency Index</button>
+    <button class="tab-btn" id="tabBtnTS" type="button">Temporal Stability</button>
+    <button class="tab-btn" id="tabBtnDS" type="button">Dataset Overview</button>
+    <button class="tab-btn" id="tabBtnCluster" type="button">Cluster</button>
+    <button class="tab-btn" id="tabBtnChurn" type="button">Churn Prediction</button>
+    <button class="tab-btn active" id="tabBtnMonthly" type="button">Monthly Learning</button>
+  </div>
+
+  {% include 'tabs/standard.html' %}
+  {% include 'tabs/consistency.html' %}
+  {% include 'tabs/temporal.html' %}
+  {% include 'tabs/overview.html' %}
+  {% include 'tabs/cluster.html' %}
+  {% include 'tabs/churn.html' %}
+  {% include 'tabs/monthly.html' %}
+</div>
+
+<script defer src="{{ url_for('static', filename='js/shared.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/standard.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/consistency.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/temporal.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/overview.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/cluster.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/churn.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/monthly.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/navigation.js') }}"></script>
+</body>
+</html>

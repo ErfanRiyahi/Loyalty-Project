@@ -1,0 +1,49 @@
+  <div class="tab-panel" id="tabTS">
+    <div class="panel">
+      <label>Backend API URL</label>
+      <input type="text" id="tsApiUrl" value="/temporal_stability">
+      <div class="hint">Temporal Stability needs 3 datasets — order, data, voice — each with 3 columns: MSISDN, date, and a marker column. The marker column name matters: it must be exactly "OrderStatusId" (order), "ACTUAL_USAGE" (data), or "Call_Duration" (voice). Leave a dataset address blank to use the backend's default file for that domain.</div>
+
+      <div class="domain-block">
+        <div class="domain-title"><span class="domain-tag">Order</span> Order domain</div>
+        <label>Dataset address</label>
+        <input type="text" class="ts-address" data-domain="order" placeholder="{{ defaults.ts["order"].path }}" value="{{ defaults.ts["order"].path }}">
+        <label>Columns (3, in order)</label>
+        <div class="domain-cols">
+          <input type="text" class="ts-col" data-domain="order" data-col="0" placeholder="{{ defaults.ts["order"].columns[0] }}" value="{{ defaults.ts["order"].columns[0] }}">
+          <input type="text" class="ts-col" data-domain="order" data-col="1" placeholder="{{ defaults.ts["order"].columns[1] }}" value="{{ defaults.ts["order"].columns[1] }}">
+          <input type="text" class="ts-col" data-domain="order" data-col="2" placeholder="{{ defaults.ts["order"].columns[2] }}" value="{{ defaults.ts["order"].columns[2] }}">
+        </div>
+      </div>
+
+      <div class="domain-block">
+        <div class="domain-title"><span class="domain-tag">Data</span> Data usage domain</div>
+        <label>Dataset address</label>
+        <input type="text" class="ts-address" data-domain="data" placeholder="{{ defaults.ts["data"].path }}" value="{{ defaults.ts["data"].path }}">
+        <label>Columns (3, in order)</label>
+        <div class="domain-cols">
+          <input type="text" class="ts-col" data-domain="data" data-col="0" placeholder="{{ defaults.ts["data"].columns[0] }}" value="{{ defaults.ts["data"].columns[0] }}">
+          <input type="text" class="ts-col" data-domain="data" data-col="1" placeholder="{{ defaults.ts["data"].columns[1] }}" value="{{ defaults.ts["data"].columns[1] }}">
+          <input type="text" class="ts-col" data-domain="data" data-col="2" placeholder="{{ defaults.ts["data"].columns[2] }}" value="{{ defaults.ts["data"].columns[2] }}">
+        </div>
+      </div>
+
+      <div class="domain-block">
+        <div class="domain-title"><span class="domain-tag">Voice</span> Voice domain</div>
+        <label>Dataset address</label>
+        <input type="text" class="ts-address" data-domain="voice" placeholder="{{ defaults.ts["voice"].path }}" value="{{ defaults.ts["voice"].path }}">
+        <label>Columns (3, in order)</label>
+        <div class="domain-cols">
+          <input type="text" class="ts-col" data-domain="voice" data-col="0" placeholder="{{ defaults.ts["voice"].columns[0] }}" value="{{ defaults.ts["voice"].columns[0] }}">
+          <input type="text" class="ts-col" data-domain="voice" data-col="1" placeholder="{{ defaults.ts["voice"].columns[1] }}" value="{{ defaults.ts["voice"].columns[1] }}">
+          <input type="text" class="ts-col" data-domain="voice" data-col="2" placeholder="{{ defaults.ts["voice"].columns[2] }}" value="{{ defaults.ts["voice"].columns[2] }}">
+        </div>
+      </div>
+
+      <button class="run-btn" id="runTSBtn" type="button">Run Temporal Stability</button>
+    </div>
+
+    <div id="tsStatusArea"></div>
+    <div id="tsResultsArea"></div>
+  </div>
+

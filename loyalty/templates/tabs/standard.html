@@ -1,0 +1,29 @@
+  <div class="tab-panel" id="tabStandard">
+    <div class="panel">
+      <label>Backend API URL</label>
+      <input type="text" id="apiUrl" value="/analyze">
+      <div class="hint">Where your Python backend is listening. Change this if it's hosted elsewhere.</div>
+
+      <label>Dataset address</label>
+      <input type="text" id="datasetAddress" placeholder="{{ defaults.standards.ARPU_CLV_GROWTH.path }}" value="{{ defaults.standards.ARPU_CLV_GROWTH.path }}">
+
+      <label>Required columns (order matters)</label>
+      <div id="columnsList"></div>
+      <button class="add-col" id="addColumnBtn" type="button">+ add column</button>
+
+      <div class="hint">Selecting a standard fills its dataset path and column mapping. You can edit them afterward. Paths must be accessible to the Python server.</div>
+      <label>Standard</label>
+      <select id="standard">
+        <option value="ARPU_CLV_GROWTH" data-path="{{ defaults.standards['ARPU_CLV_GROWTH'].path }}" data-columns='{{ defaults.standards["ARPU_CLV_GROWTH"].columns | tojson }}'>ARPU-CLV-GROWTH</option>      
+        <option value="DATA_USAGE" data-path="{{ defaults.standards['DATA_USAGE'].path }}" data-columns='{{ defaults.standards["DATA_USAGE"].columns | tojson }}'>Data Usage Score</option>
+        <option value="VOICE_USAGE" data-path="{{ defaults.standards['VOICE_USAGE'].path }}" data-columns='{{ defaults.standards["VOICE_USAGE"].columns | tojson }}'>Call Duration Score</option>
+        <option value="Transaction_Frequency" data-path="{{ defaults.standards['Transaction_Frequency'].path }}" data-columns='{{ defaults.standards["Transaction_Frequency"].columns | tojson }}'>Transaction Frequency Score</option>
+      </select>
+
+      <button class="run-btn" id="runBtn" type="button">Run</button>
+    </div>
+
+    <div id="statusArea"></div>
+    <div id="resultsArea"></div>
+  </div>
+

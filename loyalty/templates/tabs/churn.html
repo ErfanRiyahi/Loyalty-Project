@@ -1,0 +1,23 @@
+<div class="tab-panel" id="tabChurn">
+ <div class="panel">
+  <h2>Churn Prediction — Risk Assessment</h2>
+  <p>Use the latest Monthly Learning model to estimate next-month activity decline. The other methods provide score-based risk assessments.</p>
+  <label for="churnMethod">Assessment method</label>
+  <select id="churnMethod">
+    <option value="trained_monthly" selected>Trained next-month decline (latest monthly model)</option>
+    <option value="domain_balanced">Experimental: group balance and evidence checks</option>
+    <option value="baseline">Baseline: equal weight per score</option>
+  </select>
+  <div class="hint">The trained method uses the latest Monthly Learning output. Upload and path fields below apply only to the two score-based methods.</div>
+  <label for="churnFile">Upload final scored CSV</label>
+  <input id="churnFile" type="file" accept=".csv">
+  <label for="churnPath">Or enter a path accessible to the Python server</label>
+  <input id="churnPath" type="text" placeholder="Leave blank to use the latest customer_segmentation_final.csv">
+  <div class="hint">Use your cleaned, scored customer result with MSISDN and at least two informative score columns. Upload takes priority over the path. A D:/ path works only when the Python server can access that drive.</div>
+  <p class="hint">Higher scores mean stronger loyalty. The experimental method gives each of six score groups one vote; ARPU, CLV and Growth share one vote. At least two informative groups are required. High ≥ 67; Medium ≥ 34; Low &lt; 34. These thresholds are heuristic.</p>
+  <p class="hint">Missing evidence produces a possible-risk range. The method marks “Needs review” when that range crosses a band boundary or removing a group changes the band. These are sensitivity checks, not statistical confidence intervals. The baseline remains available for comparison.</p>
+  <button id="runChurnBtn" class="run-btn" type="button">Assess churn risk</button>
+ </div>
+ <div id="churnStatusArea"></div>
+ <div id="churnResultsArea"></div>
+</div>

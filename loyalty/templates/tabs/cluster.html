@@ -1,0 +1,22 @@
+  <div class="tab-panel" id="tabCluster">
+    <div class="panel">
+      <label>Backend API URL</label>
+      <input type="text" id="clusterApiUrl" value="/cluster">
+      <div class="hint">
+        Exploratory clustering of the six *_SCORE.csv files the other tabs produce, then segments customers into
+        At-Risk / Neutral / Loyal (multi-domain customers) and a Limited group (single-domain
+        customers). Run the Standard Scoring, Consistency Index, and Temporal Stability tabs
+        first so those files exist. Clustering always uses k=3. Use Monthly Learning for the versioned monthly model, stable IDs and peer comparisons.
+      </div>
+
+      <label style="display:flex;gap:8px;align-items:center">
+        <input id="clusterStability" type="checkbox" checked style="width:auto">
+        Check stability with five subsample refits (adds processing time)
+      </label>
+      <div class="hint">Validation uses k=3. Separation and stability describe the customer groups; a churn confusion matrix requires independent outcome labels.</div>
+      <button class="run-btn" id="runClusterBtn" type="button">Run Clustering</button>
+    </div>
+
+    <div id="clusterStatusArea"></div>
+    <div id="clusterResultsArea"></div>
+  </div>
