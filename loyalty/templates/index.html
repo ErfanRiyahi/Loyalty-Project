@@ -24,6 +24,7 @@
     <button class="tab-btn" id="tabBtnCluster" type="button"><span lang="fa" dir="rtl">&#1582;&#1608;&#1588;&#1607;&#8204;&#1576;&#1606;&#1583;&#1740;</span><small lang="en" dir="ltr">Clustering</small></button>
     <button class="tab-btn" id="tabBtnChurn" type="button"><span lang="fa" dir="rtl">&#1662;&#1740;&#1588;&#8204;&#1576;&#1740;&#1606;&#1740; &#1575;&#1601;&#1578; &#1601;&#1593;&#1575;&#1604;&#1740;&#1578;</span><small lang="en" dir="ltr">Activity Decline Prediction</small></button>
     <button class="tab-btn active" id="tabBtnMonthly" type="button"><span lang="fa" dir="rtl">&#1740;&#1575;&#1583;&#1711;&#1740;&#1585;&#1740; &#1605;&#1575;&#1607;&#1575;&#1606;&#1607;</span><small lang="en" dir="ltr">Monthly Learning</small></button>
+    <button class="tab-btn" id="tabBtnSettings" type="button"><span>تنظیمات پیش‌فرض</span><small lang="en" dir="ltr">Input Defaults</small></button>
   </nav>
 
   <main class="workspace" dir="ltr">
@@ -34,6 +35,7 @@
   {% include 'tabs/cluster.html' %}
   {% include 'tabs/churn.html' %}
   {% include 'tabs/monthly.html' %}
+  {% include 'tabs/settings.html' %}
   </main>
 </div>
 
@@ -47,5 +49,6 @@
 <script defer src="{{ url_for('static', filename='js/churn.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/monthly.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/navigation.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/settings.js') }}"></script>
 </body>
 </html>

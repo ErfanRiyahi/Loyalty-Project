@@ -77,19 +77,34 @@ def normalize_ids(values):
 
 # Read data in small batches and handle overlapping events in history.
 @stage("Ingest, clean and deduplicate history")
-def ingest(paths):
+def ingest(paths, columns=None):
+    columns = columns or {}
+    if not isinstance(columns, dict):
+        raise ValueError("columns must be an object keyed by source.")
+    schemas = {}
+    for source, defaults in SOURCES.items():
+        schema = columns.get(source, list(defaults) + (["OrderStatusId", "Id"] if source == "order" else []))
+        expected = 5 if source == "order" else 3
+        if (not isinstance(schema, (list, tuple)) or len(schema) != expected
+                or any(not isinstance(col, str) or not col.strip() for col in schema[:4 if source == "order" else 3])
+                or any(not isinstance(col, str) for col in schema)
+                or len(set(filter(None, schema))) != len(list(filter(None, schema)))):
+            raise ValueError(f"{source}: provide distinct identifier, date, value columns"
+                             + (", status and optional event ID columns." if source == "order" else "."))
+        schemas[source] = schema
     ROOT.mkdir(parents=True, exist_ok=True)
     report = {}
     with sqlite3.connect(ROOT / "history.sqlite") as database:
         database.execute(
             "CREATE TABLE IF NOT EXISTS events (source TEXT, event_key TEXT, customer TEXT, month TEXT, value REAL, successful INTEGER, occurrences INTEGER, PRIMARY KEY(source,event_key))"
         )
-        for source, (id_col, date_col, value_col) in SOURCES.items():
+        for source, schema in schemas.items():
+            id_col, date_col, value_col = schema[:3]
             with stage_scope(f"Ingest and clean source {source}"):
                 path = str(paths.get(source) or source_path(source))
                 required = [id_col, date_col, value_col]
                 if source == "order":
-                    required.append("OrderStatusId")
+                    required.append(schema[3])
                 read_options = source_read_options(path, required)
                 header = stage_call(
                     "Read data file", pd.read_csv, path, **read_options, nrows=0
@@ -98,7 +113,7 @@ def ingest(paths):
                 if absent:
                     raise ValueError(f"{source}: missing columns {absent}")
                 # Orders can be corrected reliably if their event Id is supplied.
-                event_id = "Id" if source == "order" and "Id" in header else None
+                event_id = schema[4] if source == "order" and schema[4] in header else None
                 selected = required + ([event_id] if event_id else [])
                 database.execute(
                     "CREATE TEMP TABLE IF NOT EXISTS incoming (event_key TEXT PRIMARY KEY, customer TEXT, month TEXT, value REAL, successful INTEGER, occurrences INTEGER)"
@@ -137,7 +152,7 @@ def ingest(paths):
                     ids = normalize_ids(chunk[id_col])
                     months = dates.loc[valid].dt.strftime("%Y-%m")
                     status = (
-                        pd.to_numeric(chunk["OrderStatusId"], errors="coerce").eq(30)
+                        pd.to_numeric(chunk[schema[3]], errors="coerce").eq(30)
                         if source == "order"
                         else pd.Series(True, index=chunk.index)
                     )
@@ -522,7 +537,7 @@ def run_monthly(payload):
         raise ValueError(
             "Monthly updates must not move backwards. Use a separate output folder for historical experiments."
         )
-    ingestion = ingest(payload.get("sources", {}))
+    ingestion = ingest(payload.get("sources", {}), payload.get("columns"))
     panel, first_seen, months = aggregates(as_of)
     snapshots = [snapshot(panel, first_seen, month) for month in months[5:]]
     current = snapshots[-1]

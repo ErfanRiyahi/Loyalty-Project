@@ -1,0 +1,104 @@
+(() => {
+  const storageKey = "loyalty.input-defaults.v1";
+  const container = document.getElementById("defaultsFields");
+  const status = document.getElementById("defaultsStatus");
+  const entries = [];
+  const excluded = new Set(["monthlyMonth", "monthlyComplete"]);
+  let serial = 0;
+
+  function addSetting(parent, key, labelText, original, apply, field = null) {
+    const label = document.createElement("label");
+    const editor = field ? field.cloneNode(true) : document.createElement("input");
+    editor.id = `default-input-${++serial}`;
+    editor.removeAttribute("class");
+    editor.removeAttribute("name");
+    if (editor.tagName === "INPUT") editor.type = field?.type === "checkbox" ? "checkbox" : "text";
+    label.htmlFor = editor.id;
+    label.textContent = labelText;
+    const set = value => {
+      if (editor.type === "checkbox") editor.checked = value;
+      else editor.value = value;
+    };
+    set(original);
+    parent.append(label, editor);
+    entries.push({key, original, apply, set, editor});
+  }
+
+  for (const panel of document.querySelectorAll(".tab-panel:not(#tabSettings)")) {
+    const section = document.createElement("div");
+    section.className = "domain-block";
+    const heading = document.createElement("h3");
+    heading.textContent = document.getElementById(panel.id.replace("tab", "tabBtn")).textContent;
+    section.appendChild(heading);
+    container.appendChild(section);
+    if (panel.id === "tabStandard") {
+      for (const option of standardSelect.options) {
+        const title = document.createElement("h4");
+        title.textContent = option.textContent;
+        section.appendChild(title);
+        addSetting(section, `standard.${option.value}.path`, "مسیر فایل داده", option.dataset.path,
+          value => { option.dataset.path = value; });
+        JSON.parse(option.dataset.columns).forEach((value, index) => {
+          addSetting(section, `standard.${option.value}.column.${index}`, ["شناسه مشتری", "تاریخ", "مقدار"][index], value,
+            next => {
+              const columns = JSON.parse(option.dataset.columns);
+              columns[index] = next;
+              option.dataset.columns = JSON.stringify(columns);
+            });
+        });
+      }
+    }
+    for (const field of panel.querySelectorAll("input, select")) {
+      if (excluded.has(field.id) || field.type === "file" || field.classList.contains("col-input") || field.id === "datasetAddress") continue;
+      const label = Array.from(panel.querySelectorAll("label")).find(item => item.htmlFor === field.id || item.contains(field));
+      const domain = field.dataset.domain ? ` (${field.dataset.domain})` : "";
+      const text = (label?.textContent.trim() || field.getAttribute("aria-label") || field.id) + domain;
+      const original = field.type === "checkbox" ? field.checked : field.value;
+      addSetting(section, field.id, text, original, value => {
+        if (field.type === "checkbox") field.checked = value;
+        else field.value = value;
+      }, field);
+    }
+  }
+
+  function readSaved() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(storageKey) || "{}");
+      return saved && typeof saved === "object" && !Array.isArray(saved) ? saved : {};
+    } catch {
+      status.textContent = "خواندن پیش‌فرض‌های ذخیره‌شده ممکن نشد؛ مقادیر اصلی استفاده شد.";
+      return {};
+    }
+  }
+  function apply(values) {
+    for (const entry of entries) {
+      let value = Object.hasOwn(values, entry.key) ? values[entry.key] : entry.original;
+      if (typeof value !== typeof entry.original || (entry.editor.tagName === "SELECT" && !Array.from(entry.editor.options).some(option => option.value === value))) value = entry.original;
+      entry.set(value);
+      entry.apply(value);
+    }
+    applyStandardDefaults();
+  }
+  apply(readSaved());
+  document.getElementById("defaultsForm").addEventListener("submit", event => {
+    event.preventDefault();
+    const values = Object.fromEntries(entries.map(entry => [entry.key,
+      entry.editor.type === "checkbox" ? entry.editor.checked : entry.editor.value]));
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(values));
+      apply(values);
+      status.textContent = "پیش‌فرض‌ها ذخیره و در فرم‌ها اعمال شدند.";
+    } catch {
+      status.textContent = "ذخیره ممکن نشد؛ دسترسی مرورگر به حافظه محلی را بررسی کنید.";
+    }
+  });
+  document.getElementById("resetDefaultsBtn").addEventListener("click", () => {
+    try {
+      localStorage.removeItem(storageKey);
+      apply({});
+      status.textContent = "پیش‌فرض‌های اصلی بازیابی شدند.";
+    } catch {
+      status.textContent = "بازیابی ممکن نشد؛ دسترسی مرورگر به حافظه محلی را بررسی کنید.";
+    }
+  });
+})();
