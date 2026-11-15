@@ -3,7 +3,7 @@
   const container = document.getElementById("defaultsFields");
   const status = document.getElementById("defaultsStatus");
   const entries = [];
-  const excluded = new Set(["monthlyMonth", "monthlyComplete"]);
+  const excluded = new Set(["churnMonth", "churnComplete", "adaptiveMonth", "adaptiveConfirm"]);
   let serial = 0;
 
   function addSetting(parent, key, labelText, original, apply, field = null) {
@@ -64,7 +64,15 @@
   function readSaved() {
     try {
       const saved = JSON.parse(localStorage.getItem(storageKey) || "{}");
-      return saved && typeof saved === "object" && !Array.isArray(saved) ? saved : {};
+      if (!saved || typeof saved !== "object" || Array.isArray(saved)) return {};
+      // Preserve raw-source defaults when moving the old monthly form into Churn.
+      for (const [key, value] of Object.entries(saved)) {
+        if (key.startsWith("monthly")) {
+          const next = "churn" + key.slice("monthly".length);
+          if (!Object.hasOwn(saved, next)) saved[next] = value;
+        }
+      }
+      return saved;
     } catch {
       status.textContent = "خواندن پیش‌فرض‌های ذخیره‌شده ممکن نشد؛ مقادیر اصلی استفاده شد.";
       return {};

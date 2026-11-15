@@ -12,7 +12,7 @@ def test_persian_information_and_existing_bilingual_tabs():
         # Download actions appear after results, so their copy is checked in the JS source.
         if text=='دانلود':continue
         assert text in page
-    assert 'Monthly Learning' in page and 'Activity Decline Prediction' in page
+    assert 'Adaptive Learning' in page and 'Churn Prediction' in page
     shared=client.get('/static/js/shared.js').text
     progress=client.get('/static/js/progress.js').text
     assert 'دانلود خروجی' in shared and 'کاربران امتیازدهی‌شده' in shared

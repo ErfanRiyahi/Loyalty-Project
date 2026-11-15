@@ -1,5 +1,7 @@
 // Translate display text only; keep API keys and column names unchanged.
 const persianLabels = {
+  "Update churn predictions": "به‌روزرسانی پیش‌بینی ریزش",
+  "Evaluate adaptive clustering candidate": "ارزیابی مدل جدید خوشه‌بندی",
   "Inspect dataset": "بررسی داده‌ها",
   ": rows read and processed": ": داده‌های خوانده‌شده و پردازش‌شده",
   "Prepare model features": "آماده‌سازی و مقیاس‌بندی ویژگی‌ها",
@@ -13,7 +15,7 @@ const persianLabels = {
   "Fit model and assign clusters": "برازش مدل و تخصیص خوشه‌ها",
   "Filter outliers and calculate ARPU":
     "برش مقادیر دورافتاده و محاسبه درآمد (ARPU)",
-  "Train and evaluate three-month inactivity prediction": "آموزش و ارزیابی پیش‌بینی ریزش سه‌ماهه",
+  "Predict three-month inactivity risk": "پیش‌بینی ریسک ریزش سه‌ماهه",
   "Update monthly learning": "به‌روزرسانی ماهانه",
   "Combine temporal stability scores": "ترکیب امتیاز نهایی پایداری",
   "The report limit has been reached. Please try again later.":

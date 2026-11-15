@@ -106,7 +106,7 @@ def test_upload_and_api_failures():
 
 
 def test_monthly_job_reports_processed_rows_and_real_model_stages(tmp_path):
-    from loyalty.services import monthly
+    from loyalty.services import forecasting
     orders=[];data=[];voice=[]
     for index,month in enumerate(pd.period_range('2024-01','2024-09',freq='M')):
         for customer in range(12):
@@ -121,9 +121,9 @@ def test_monthly_job_reports_processed_rows_and_real_model_stages(tmp_path):
     pd.DataFrame(voice,columns=['Subscriber_MSISDN','Call_Date','Call_Duration']).to_csv(tmp_path/'voice.txt',sep='|',index=False)
     body={'as_of_month':'2024-09','confirm_complete':True,'run_stability':False,
           'sources':{'order':str(tmp_path/'orders.csv'),'data_cdr':str(tmp_path/'data.csv'),'voice_cdr':str(tmp_path/'voice.txt')}}
-    with patch.object(monthly,'ROOT',tmp_path/'monthly_outputs'):
+    with patch.object(forecasting,'ROOT',tmp_path/'monthly_outputs'):
         client=create_app().test_client()
-        ident=client.post('/jobs',json={'path':'/monthly/update','body':body}).json['operation_id']
+        ident=client.post('/jobs',json={'path':'/churn/update','body':body}).json['operation_id']
         report=finished(client,ident)
     assert report['status']=='succeeded',report
     assert report['result']['customers']==12
@@ -131,6 +131,6 @@ def test_monthly_job_reports_processed_rows_and_real_model_stages(tmp_path):
     assert len(source_events)==3
     assert all(e['completed_units']==108 and e['total_units'] is None for e in source_events)
     labels=[e['label'] for e in report['events']]
-    assert 'Train and evaluate three-month inactivity prediction' in labels
-    assert 'Validate cluster quality and stability' in labels
+    assert 'Predict three-month inactivity risk' in labels
+    assert 'Validate cluster quality and stability' not in labels
     assert 'Save output file' in labels

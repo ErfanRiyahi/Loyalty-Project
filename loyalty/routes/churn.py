@@ -112,18 +112,18 @@ def download():
 
 def retention_frame():
     """Read one immutable run, never interpret a legacy decline model as churn."""
-    from ..services import monthly, retention
+    from ..services import forecasting, retention
     import re
-    report_path = monthly.ROOT / "latest_report.json"
+    report_path = forecasting.ROOT / "latest_report.json"
     if not report_path.is_file():
-        raise ValueError("ابتدا یادگیری ماهانه را با فایل‌های کامل اجرا کنید.")
+        raise ValueError("ابتدا پیش‌بینی ریزش را با فایل‌های کامل به‌روز کنید.")
     report = json.loads(report_path.read_text(encoding="utf-8"))
     if report.get("retention_version") != retention.VERSION:
-        raise ValueError("نتایج قبلی مربوط به تعریف قدیمی افت فعالیت است؛ یادگیری ماهانه را دوباره اجرا کنید.")
+        raise ValueError("نتایج قبلی مربوط به تعریف قدیمی افت فعالیت است؛ پیش‌بینی ریزش را دوباره اجرا کنید.")
     run = report.get("run_id", "")
     if not re.fullmatch(r"\d{8}_\d{6}(?:_\d{6})?", run):
-        raise ValueError("شناسهٔ گزارش معتبر نیست؛ یادگیری ماهانه را دوباره اجرا کنید.")
-    frame = pd.read_csv(monthly.ROOT / "runs" / run / "retention.csv", dtype={"MSISDN": "string"})
+        raise ValueError("شناسهٔ گزارش معتبر نیست؛ پیش‌بینی ریزش را دوباره اجرا کنید.")
+    frame = pd.read_csv(forecasting.ROOT / "runs" / run / "retention.csv", dtype={"MSISDN": "string"})
     order = {"at_risk": 0, "churned": 1, "review": 2, "low": 3}
     frame["_order"] = frame.retention_status.map(order)
     frame = frame.sort_values(["_order", "churn_probability", "consecutive_inactive_months", "MSISDN"],
@@ -180,5 +180,14 @@ def customer_download():
         csv = selected[fields].to_csv(index=False).encode("utf-8-sig")
         return send_file(BytesIO(csv), mimetype="text/csv; charset=utf-8", as_attachment=True,
                          download_name=f"retention_{report['as_of_month']}.csv")
+    except (ValueError, FileNotFoundError) as exc:
+        return jsonify(error=str(exc)), 400
+
+
+@app.post("/churn/update")
+def update_forecast():
+    from ..services.forecasting import update
+    try:
+        return jsonify(update(request.get_json() or {}))
     except (ValueError, FileNotFoundError) as exc:
         return jsonify(error=str(exc)), 400

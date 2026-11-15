@@ -1,4 +1,4 @@
-> Current implementation update: Monthly Learning now uses three-month inactivity targets and a fixed histogram gradient-boosting model; the customer page shows prioritized retention lists rather than method choices. See README.md for label maturity, evaluation splits and migration requirements. The score-screening methods documented below remain legacy API functionality, not the current predictive target.
+> Current implementation: Adaptive Learning evaluates and conditionally promotes clustering models only. Churn Prediction has its own raw-source form, history and saved model; prediction reuses that model without invoking adaptive learning. README.md documents comparison gates, held-out candidate rows, rollback and endpoint migration. Historical screening/research notes below are retained for context and do not describe the current adaptive orchestration.
 
 # Clustering validation, experimental risk screening, and adaptive learning
 

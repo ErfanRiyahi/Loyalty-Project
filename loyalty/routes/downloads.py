@@ -78,11 +78,9 @@ def install(application):
         data = response.get_json()
         if not isinstance(data, dict) or "error" in data:
             return response
-        if request.path in ["/monthly/update", "/monthly/status"] and data.get(
-            "run_id"
-        ):
-            data["download_url"] = "/monthly/runs/" + data["run_id"] + "/customers"
-            data["report_download_url"] = "/monthly/runs/" + data["run_id"] + "/report"
+        if request.path in ["/monthly/update", "/monthly/status"]:
+            data["download_url"] = "/adaptive/download"
+            data["report_download_url"] = "/adaptive/report"
         elif request.method == "POST":
             if request.path in [
                 "/analyze",
@@ -116,3 +114,14 @@ def install(application):
                 data["download_url"] = "/outputs/download/" + exported.name
         response.set_data(json.dumps(common.json_safe(data), allow_nan=False))
         return response
+
+
+@app.get("/churn/runs/<run_id>/<kind>")
+def download_churn_run(run_id, kind):
+    from ..services.forecasting import ROOT
+    if not re.fullmatch(r"\d{8}_\d{6}(?:_\d{6})?", run_id) or kind not in ["customers", "report"]:
+        return jsonify(error="Unknown churn output."), 404
+    path = ROOT / "runs" / run_id / ("retention.csv" if kind == "customers" else "report.json")
+    if not path.is_file():
+        return jsonify(error="Churn output not found."), 404
+    return send_file(path, as_attachment=True)

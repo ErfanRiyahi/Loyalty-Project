@@ -1,22 +1,17 @@
-from ..common import score_distributions
 from ..progress import stage, stage_call, units, stage_scope
 
-"""Monthly batch learning from the existing source schemas.
+"""Activity-history helpers retained under the legacy module name.
 
-Events are retained locally; snapshots/targets are built with explicit month cutoffs.
+Independent churn inference supplies its own storage root. No adaptive model lifecycle lives here.
 """
 from pathlib import Path
 from collections import Counter
 import hashlib
 import json
 import sqlite3
-from datetime import datetime, timezone
 
-import joblib
 import numpy as np
 import pandas as pd
-from scipy.optimize import linear_sum_assignment
-from sklearn.cluster import KMeans
 from sklearn.metrics import (
     average_precision_score,
     roc_auc_score,
@@ -27,7 +22,6 @@ from sklearn.metrics import (
 )
 
 from ..common import OUTPUT_ROOT, source_path, json_safe, source_read_options
-from .validation import validate_clusters
 
 ROOT = OUTPUT_ROOT / "monthly"
 SOURCES = {
@@ -41,14 +35,7 @@ FEATURES = [
     for domain in ACTIVITY
     for part in ["log_current", "log_mean3", "log_mean6", "ratio", "inactive_months"]
 ]
-CLUSTER_FEATURES = [
-    "ARPU_SCORE",
-    "CLV_SCORE",
-    "GROWTH_SCORE",
-    "DATA_USAGE_SCORE",
-    "VOICE_USAGE_SCORE",
-    "Transaction_Frequency_SCORE",
-]
+
 
 
 # Write to a temporary file, then replace the destination to avoid partial files.
@@ -74,7 +61,8 @@ def normalize_ids(values):
 
 # Read data in small batches and handle overlapping events in history.
 @stage("Ingest, clean and deduplicate history")
-def ingest(paths, columns=None):
+def ingest(paths, columns=None, root=None):
+    root = ROOT if root is None else Path(root)
     columns = columns or {}
     if not isinstance(columns, dict):
         raise ValueError("columns must be an object keyed by source.")
@@ -89,9 +77,9 @@ def ingest(paths, columns=None):
             raise ValueError(f"{source}: provide distinct identifier, date, value columns"
                              + (", status and optional event ID columns." if source == "order" else "."))
         schemas[source] = schema
-    ROOT.mkdir(parents=True, exist_ok=True)
+    root.mkdir(parents=True, exist_ok=True)
     report = {}
-    with sqlite3.connect(ROOT / "history.sqlite") as database:
+    with sqlite3.connect(root / "history.sqlite") as database:
         database.execute(
             "CREATE TABLE IF NOT EXISTS events (source TEXT, event_key TEXT, customer TEXT, month TEXT, value REAL, successful INTEGER, occurrences INTEGER, PRIMARY KEY(source,event_key))"
         )
@@ -208,8 +196,9 @@ def ingest(paths, columns=None):
 
 # Build shared history for all three sources through the observation month only.
 @stage("Build shared monthly history")
-def aggregates(as_of):
-    with sqlite3.connect(ROOT / "history.sqlite") as database:
+def aggregates(as_of, root=None):
+    root = ROOT if root is None else Path(root)
+    with sqlite3.connect(root / "history.sqlite") as database:
         all_data = pd.read_sql_query(
             "SELECT source,customer,month,SUM(value*occurrences) AS volume,SUM(occurrences) AS frequency FROM events WHERE successful=1 AND month<=? GROUP BY source,customer,month",
             database,
@@ -302,51 +291,6 @@ def snapshot(panel, first_seen, month):
     return frame.reset_index()
 
 
-# Calculate scoring-reference parameters from historical data.
-@stage("Calculate scoring references")
-def fit_references(frame):
-    references = {}
-    for feature, raw in [
-        ("ARPU_SCORE", "weighted_arpu"),
-        ("DATA_USAGE_SCORE", "data_mean6"),
-        ("VOICE_USAGE_SCORE", "voice_mean6"),
-        ("Transaction_Frequency_SCORE", "orders_mean6"),
-        ("GROWTH_SCORE", "growth_pct"),
-    ]:
-        references[feature] = [
-            float(frame[raw].quantile(0.05)),
-            float(frame[raw].quantile(0.95)),
-        ]
-    positive = frame.loc[frame.spend_weighted6 > 0, "spend_weighted6"]
-    references["BaseCLV"] = float(positive.median()) if len(positive) else 1.0
-    return references
-
-
-# Apply the saved reference to customers so results remain comparable across runs.
-@stage("Apply scoring references")
-def apply_references(frame, refs, prefix=""):
-    result = frame.copy()
-    for feature, raw in [
-        ("ARPU_SCORE", "weighted_arpu"),
-        ("DATA_USAGE_SCORE", "data_mean6"),
-        ("VOICE_USAGE_SCORE", "voice_mean6"),
-        ("Transaction_Frequency_SCORE", "orders_mean6"),
-        ("GROWTH_SCORE", "growth_pct"),
-    ]:
-        lower, upper = refs[feature]
-        result[prefix + feature] = (
-            (1 + 9 * (frame[raw] - lower) / (upper - lower)).clip(1, 10)
-            if upper > lower
-            else 5.0
-        )
-    result[prefix + "CLV_SCORE"] = (
-        5
-        + 2
-        * np.log10(frame.spend_weighted6.clip(lower=1e-9) / max(refs["BaseCLV"], 1e-9))
-    ).clip(1, 10)
-    return result
-
-
 # Evaluate predictions against observed outcomes in held-out months.
 def metrics(y, probabilities):
     predicted = (probabilities >= 0.5).astype(int)
@@ -365,193 +309,3 @@ def metrics(y, probabilities):
         ),
         "brier": float(brier_score_loss(y, probabilities)),
     }
-
-
-# Run ingestion, feature building, clustering, prediction and output saving in order.
-@stage("Update monthly learning")
-def run_monthly(payload):
-    ROOT.mkdir(parents=True, exist_ok=True)
-    if payload.get("confirm_complete") is not True:
-        raise ValueError(
-            "Confirm that all three feeds are complete through the selected observation month. Missing feed data must not be labeled as inactivity."
-        )
-    try:
-        as_of = pd.Period(payload["as_of_month"], freq="M")
-    except Exception as exc:
-        raise ValueError("as_of_month must be YYYY-MM.") from exc
-    if str(as_of) != payload["as_of_month"]:
-        raise ValueError("Use YYYY-MM.")
-    if as_of >= pd.Timestamp.now(tz="UTC").tz_localize(None).to_period("M"):
-        raise ValueError("Select a completed month before the current calendar month.")
-    state_path = ROOT / "state.json"
-    state = json.loads(state_path.read_text()) if state_path.exists() else {}
-    if state.get("as_of_month") and str(as_of) < state["as_of_month"]:
-        raise ValueError(
-            "Monthly updates must not move backwards. Use a separate output folder for historical experiments."
-        )
-    ingestion = ingest(payload.get("sources", {}), payload.get("columns"))
-    panel, first_seen, months = aggregates(as_of)
-    snapshots = [snapshot(panel, first_seen, month) for month in months[5:]]
-    current = snapshots[-1]
-    quarter = str(as_of.asfreq("Q"))
-    ref_path = ROOT / "references" / f"{quarter}.json"
-    if ref_path.exists():
-        references = json.loads(ref_path.read_text())
-    else:
-        # Build references from data before the quarter; no future-month leakage.
-        prior = pd.Period(quarter, freq="Q").asfreq("M", "start") - 1
-        ref_month = min(prior, as_of)
-        reference_frames = [
-            snapshot(panel, first_seen, ref_month - offset) for offset in [2, 1, 0]
-        ]
-        ref_frame = pd.concat(reference_frames, ignore_index=True)
-        if ref_frame.empty:
-            ref_frame = current
-            ref_month = as_of
-        references = {
-            "quarter": quarter,
-            "reference_month": str(ref_month),
-            "global": fit_references(ref_frame),
-            "peer": {},
-            "note": "Global and peer parameters remain fixed through this quarter; unseen groups use global references.",
-        }
-    scored = apply_references(current, references["global"])
-    X = scored[CLUSTER_FEATURES].to_numpy(dtype=float)
-    if len(X) < 3 or np.unique(X, axis=0).shape[0] < 3:
-        raise ValueError(
-            "Monthly k=3 needs at least three customers and three distinct feature vectors."
-        )
-    km = stage_call(
-        "Fit model", KMeans(n_clusters=3, n_init=10, random_state=42).fit, X
-    )
-    labels = km.labels_
-    previous_path = ROOT / "latest_assignments.csv"
-    mapping = {}
-    if previous_path.exists():
-        old = stage_call(
-            "Read data file", pd.read_csv, previous_path, dtype={"MSISDN": "string"}
-        )
-        overlap = pd.DataFrame({"MSISDN": current.MSISDN, "raw": labels}).merge(
-            old, on="MSISDN"
-        )
-        if len(overlap):
-            matrix = (
-                pd.crosstab(overlap.raw, overlap.cluster_id)
-                .reindex(index=range(3), columns=range(3), fill_value=0)
-                .to_numpy()
-            )
-            rows, cols = linear_sum_assignment(-matrix)
-            mapping = dict(zip(rows.tolist(), cols.tolist()))
-    if not mapping:
-        order = (
-            scored.assign(raw=labels)
-            .groupby("raw")[CLUSTER_FEATURES]
-            .mean()
-            .mean(axis=1)
-            .sort_values()
-            .index
-        )
-        mapping = dict(zip(order, range(3)))
-    stable = np.array([mapping[int(label)] for label in labels])
-    scored["cluster_id"] = stable
-    scored["cluster_label"] = [f"Cluster {number}" for number in stable]
-    for number in range(3):
-        key = str(number)
-        if key not in references["peer"]:
-            members = scored.loc[scored.cluster_id == number, "MSISDN"]
-            reference = snapshot(
-                panel, first_seen, pd.Period(references["reference_month"], freq="M")
-            )
-            subset = reference.loc[reference.MSISDN.isin(members)]
-            references["peer"][key] = (
-                fit_references(subset) if len(subset) >= 3 else references["global"]
-            )
-        positions = scored.index[scored.cluster_id == number]
-        peer = apply_references(
-            scored.loc[positions], references["peer"][key], prefix="PEER_"
-        )
-        for col in CLUSTER_FEATURES:
-            scored.loc[positions, "PEER_" + col] = peer["PEER_" + col]
-    run_id = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
-    run_dir = ROOT / "runs" / run_id
-    run_dir.mkdir(parents=True)
-    from .retention import predict, VERSION as retention_version
-
-    prediction, training = predict(snapshots, panel, as_of, run_dir)
-    output = scored.merge(
-        prediction[
-            [
-                "MSISDN",
-                "decline_probability",
-                "prediction_status",
-                "predicted_next_month",
-                "churn_probability", "retention_status", "risk_level", "risk_reasons",
-                "model_factors", "last_active_month", "consecutive_inactive_months", "forecast_through",
-            ]
-        ],
-        on="MSISDN",
-        validate="one_to_one",
-    )
-    output = output.sort_values(
-        ["decline_probability", "cluster_id"],
-        ascending=[False, True],
-        na_position="last",
-    ).reset_index(drop=True)
-    output["complete_inactivity_current_month"] = sum(
-        output[d + "_current"] for d in ACTIVITY
-    ).eq(0)
-    diagnostics = validate_clusters(
-        X,
-        labels,
-        {raw: f"Cluster {stable_id}" for raw, stable_id in mapping.items()},
-        payload.get("run_stability", True),
-    )
-    stage_call("Save output file", prediction.to_csv, run_dir / "retention.csv", index=False)
-    for file in [run_dir / "customers.csv", ROOT / "latest_customers.csv"]:
-        stage_call("Save output file", output.to_csv, file, index=False)
-    stage_call(
-        "Save model",
-        joblib.dump,
-        {
-            "preprocessing": "none",
-            "kmeans": km,
-            "cluster_id_map": mapping,
-            "features": CLUSTER_FEATURES,
-            "quarter": quarter,
-        },
-        run_dir / "cluster_model.pkl",
-    )
-    stage_call(
-        "Save output file",
-        output[["MSISDN", "cluster_id"]].to_csv,
-        previous_path,
-        index=False,
-    )
-    write_json(ref_path, references)
-    report = {
-        "run_id": run_id,
-        "as_of_month": str(as_of),
-        "predicting_month": str(as_of + 3),
-        "retention_version": retention_version,
-        "retention_counts": prediction.retention_status.value_counts().to_dict(),
-        "quarter": quarter,
-        "customers": len(output),
-        "cluster_counts": output.cluster_id.value_counts().sort_index().to_dict(),
-        "ingestion": ingestion,
-        "clustering_validation": diagnostics,
-        "learning": training,
-        "references": references,
-        "warnings": [
-            "Identical unkeyed corrected events cannot be distinguished from genuinely new events. Exact-overlap deduplication only.",
-            "Legacy ID cleaning removes the first two characters.",
-        ],
-        "preview": output.head(100).to_dict(orient="records"),
-        "download_url": "/monthly/download",
-    }
-    report["distributions"] = score_distributions(output)
-    report["prediction_counts"] = output["prediction_status"].value_counts().to_dict()
-    report["preprocessing"] = "none"
-    write_json(run_dir / "report.json", report)
-    write_json(ROOT / "latest_report.json", report)
-    write_json(state_path, {"as_of_month": str(as_of), "run_id": run_id})
-    return json_safe(report)

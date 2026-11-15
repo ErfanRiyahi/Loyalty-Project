@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 from loyalty import create_app, common
 from loyalty.services.profiling import profile_dataset
-from loyalty.services import clustering, monthly
+from loyalty.services import clustering, monthly, forecasting
 from loyalty.routes import scoring, clustering as clustering_routes, churn
 
 
@@ -22,7 +22,7 @@ def client(tmp_path,monkeypatch):
     monkeypatch.setattr(clustering,'MODELS_DIR',str(output/'models'))
     monkeypatch.setattr(clustering,'CLUSTER_CONFIG_FILE',str(output/'cluster_config.json'))
     monkeypatch.setattr(clustering,'MODEL_REGISTRY_FILE',str(output/'model_registry.json'))
-    monkeypatch.setattr(monthly,'ROOT',output/'monthly')
+    monkeypatch.setattr(forecasting,'ROOT',output/'churn')
     return create_app().test_client()
 
 
@@ -92,11 +92,11 @@ def test_cluster_raw_features_and_saved_model_without_scaler(client):
             'Transaction_Frequency':['Transaction_Frequency_SCORE'],'TEMPORAL_STABILITY':['TS_Score'],'CONSISTENCY_INDEX':['CI_Score']}
     for name,columns in groups.items():
         pd.DataFrame({'MSISDN':[str(100+i) for i in range(12)],**{col:np.linspace(1,10,12) for col in columns}}).to_csv(common.SCORE_FILES[name],index=False)
-    original=clustering.KMeans.fit_predict;captured={}
+    original=clustering.KMeans.fit;captured={}
     def record(self,values,*args,**kwargs):
         captured['values']=values.copy();captured['k']=self.n_clusters
         return original(self,values,*args,**kwargs)
-    with patch.object(clustering.KMeans,'fit_predict',record):
+    with patch.object(clustering.KMeans,'fit',record):
         result=client.post('/cluster',json={'run_stability':False})
     assert result.status_code==200,result.json
     assert captured['k']==3
@@ -118,22 +118,14 @@ def test_monthly_raw_features_and_run_specific_download(client,tmp_path):
     pd.DataFrame(data,columns=['SERVED_MSISDN','START_TIMESTAMP','ACTUAL_USAGE']).to_csv(tmp_path/'data.csv',index=False)
     pd.DataFrame(voice,columns=['Subscriber_MSISDN','Call_Date','Call_Duration']).to_csv(tmp_path/'voice.txt',sep='|',index=False)
     payload={'as_of_month':'2024-09','confirm_complete':True,'run_stability':False,'sources':{'order':str(tmp_path/'orders.csv'),'data_cdr':str(tmp_path/'data.csv'),'voice_cdr':str(tmp_path/'voice.txt')}}
-    original=monthly.KMeans.fit;captured={}
-    def record(self,values,*args,**kwargs):
-        captured['values']=values.copy();return original(self,values,*args,**kwargs)
-    with patch.object(monthly.KMeans,'fit',record):result=client.post('/monthly/update',json=payload)
+    with patch.object(clustering.KMeans,'fit',side_effect=AssertionError('Churn must not fit clusters')):
+        result=client.post('/churn/update',json=payload)
     assert result.status_code==200,result.json
     report=result.json
-    assert report['customers']==12 and report['preprocessing']=='none'
-    expected=pd.DataFrame(report['preview'])[monthly.CLUSTER_FEATURES].to_numpy()
-    np.testing.assert_allclose(np.sort(captured['values'],axis=0),np.sort(expected,axis=0))
+    assert report['customers']==12 and report['workflow']=='independent_churn'
     assert client.get(report['download_url']).status_code==200
     assert client.get(report['report_download_url']).status_code==200
-    assert report['distributions'] and sum(report['prediction_counts'].values())==12
-    import joblib
-    model=joblib.load(monthly.ROOT/'runs'/report['run_id']/'cluster_model.pkl')
-    assert model['preprocessing']=='none' and 'scaler' not in model
-    assert client.get('/monthly/runs/invalid/customers').status_code==404
+    assert client.get('/churn/runs/invalid/customers').status_code==404
 
 
 def test_seven_tabs_brand_and_no_time_estimate(client):
@@ -141,7 +133,7 @@ def test_seven_tabs_brand_and_no_time_estimate(client):
     page=result.text
     for name in ['Standard','CI','TS','DS','Cluster','Churn','Monthly']:
         assert f'id="tabBtn{name}"' in page and f'id="tab{name}"' in page
-    assert 'Activity Decline Prediction' in page and 'Monthly Learning' in page
+    assert 'Churn Prediction' in page and 'Adaptive Learning' in page
     assert 'brand/logo.svg' in page and 'workspace' in page
     progress=client.get('/static/js/progress.js').text
     assert 'زمان سپری‌شده کل' in progress and 'مدت اجرای مراحل' in progress

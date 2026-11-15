@@ -1,57 +1,52 @@
-from flask import Blueprint, request, jsonify, send_file
-from ..common import json_safe
-from ..services.monthly import run_monthly, ROOT
+"""Adaptive learning updates the clustering model only."""
 import json
-import threading
+from flask import Blueprint, request, jsonify, send_file
+from ..services import adaptive
 
 app = Blueprint("monthly", __name__)
-update_lock = threading.Lock()
 
 
+@app.post("/adaptive/update")
 @app.post("/monthly/update")
 def update():
-    if not update_lock.acquire(blocking=False):
-        return jsonify(error="Another monthly update is running."), 409
     try:
-        return jsonify(run_monthly(request.get_json() or {}))
+        return jsonify(adaptive.update(request.get_json() or {}))
     except (ValueError, FileNotFoundError) as exc:
         return jsonify(error=str(exc)), 400
-    except Exception:
-        from flask import current_app
-
-        current_app.logger.exception("Monthly update failed")
-        return (
-            jsonify(
-                error="Monthly update failed; check the Python console for details."
-            ),
-            500,
-        )
-    finally:
-        update_lock.release()
 
 
-# Expose the actual stage and elapsed time for the browser to display.
+@app.get("/adaptive/status")
 @app.get("/monthly/status")
 def status():
-    path = ROOT / "latest_report.json"
-    return (
-        jsonify(json_safe(json.loads(path.read_text())))
-        if path.exists()
-        else jsonify(status="not_run")
-    )
+    latest = adaptive.ROOT / "latest_report.json"
+    result = json.loads(latest.read_text()) if latest.exists() else {"status": "not_run"}
+    active = adaptive.ROOT / "active.json"
+    result["active_run_id"] = json.loads(active.read_text())["run_id"] if active.exists() else None
+    result["can_rollback"] = (adaptive.ROOT / "previous.json").exists()
+    return jsonify(result)
 
 
+@app.post("/adaptive/rollback")
+def rollback():
+    try:
+        return jsonify(adaptive.rollback())
+    except (ValueError, FileNotFoundError) as exc:
+        return jsonify(error=str(exc)), 400
+
+
+@app.get("/adaptive/download")
 @app.get("/monthly/download")
 def download():
-    path = ROOT / "latest_customers.csv"
-    if not path.exists():
-        return jsonify(error="Run Monthly Learning first."), 404
-    return send_file(path, as_attachment=True)
+    active = adaptive.ROOT / "active.json"
+    if not active.exists():
+        return jsonify(error="هنوز مدل فعال پذیرفته نشده است."), 404
+    return send_file(json.loads(active.read_text())["output_file"], as_attachment=True)
 
 
+@app.get("/adaptive/report")
 @app.get("/monthly/report")
 def report():
-    path = ROOT / "latest_report.json"
+    path = adaptive.ROOT / "latest_report.json"
     if not path.exists():
-        return jsonify(error="Run Monthly Learning first."), 404
+        return jsonify(error="هنوز ارزیابی تطبیقی انجام نشده است."), 404
     return send_file(path, as_attachment=True)

@@ -50,8 +50,8 @@ def new_model():
         early_stopping=False, random_state=42)
 
 
-@stage("Train and evaluate three-month inactivity prediction")
-def predict(snapshots, panel, latest, run_dir):
+@stage("Predict three-month inactivity risk")
+def predict(snapshots, panel, latest, run_dir, model_bundle=None):
     frames = [enrich(frame, panel, frame.snapshot_month.iloc[0]) for frame in snapshots if not frame.empty]
     current = frames[-1].copy()
     current["churn_probability"] = np.nan
@@ -67,30 +67,38 @@ def predict(snapshots, panel, latest, run_dir):
               "status": "insufficient_training_data", "algorithm": "HistGradientBoostingClassifier"}
     def sufficient(frame):
         return len(frame) >= 30 and frame.target.nunique() == 2 and frame.target.value_counts().min() >= 5
-    if not history.empty and sufficient(history):
-        # Each evaluation model sees only labels matured by its prediction date.
-        periods = sorted(history.snapshot_month.unique())
-        test_month = pd.Period(periods[-1], freq="M")
-        validation_month = test_month - 3
-        training = history.loc[history.snapshot_month <= str(validation_month - 3)]
-        validation = history.loc[history.snapshot_month == str(validation_month)]
-        test = history.loc[history.snapshot_month == str(test_month)]
-        if sufficient(training) and not validation.empty and not test.empty:
-            evaluator = stage_call("Fit model", new_model().fit, training[FEATURES], training.target.astype(int))
-            report.update(training_months=sorted(training.snapshot_month.unique()),
-                training_labels_observed_through=str(pd.Period(training.snapshot_month.max(), freq="M") + 3),
-                validation_month=str(validation_month), test_month=str(test_month),
-                validation=monthly.metrics(validation.target.astype(int), evaluator.predict_proba(validation[FEATURES])[:, 1]),
-                candidate_test=monthly.metrics(test.target.astype(int), evaluator.predict_proba(test[FEATURES])[:, 1]))
-        # Fixed model specification; no selection or promotion on the final test month.
-        model = stage_call("Fit model", new_model().fit, history[FEATURES], history.target.astype(int))
+    if model_bundle is not None or (not history.empty and sufficient(history)):
+        if model_bundle is not None:
+            if model_bundle.get("version") != VERSION or model_bundle.get("features") != FEATURES:
+                raise ValueError("Saved churn model is incompatible with this feature version.")
+            model = model_bundle["pipeline"]
+            report.update(model_bundle.get("evaluation", {}))
+            report["model_source"] = "existing"
+        else:
+            # Each evaluation model sees only labels matured by its prediction date.
+            periods = sorted(history.snapshot_month.unique())
+            test_month = pd.Period(periods[-1], freq="M")
+            validation_month = test_month - 3
+            training = history.loc[history.snapshot_month <= str(validation_month - 3)]
+            validation = history.loc[history.snapshot_month == str(validation_month)]
+            test = history.loc[history.snapshot_month == str(test_month)]
+            if sufficient(training) and not validation.empty and not test.empty:
+                evaluator = stage_call("Fit model", new_model().fit, training[FEATURES], training.target.astype(int))
+                report.update(training_months=sorted(training.snapshot_month.unique()),
+                    training_labels_observed_through=str(pd.Period(training.snapshot_month.max(), freq="M") + 3),
+                    validation_month=str(validation_month), test_month=str(test_month),
+                    validation=monthly.metrics(validation.target.astype(int), evaluator.predict_proba(validation[FEATURES])[:, 1]),
+                    candidate_test=monthly.metrics(test.target.astype(int), evaluator.predict_proba(test[FEATURES])[:, 1]))
+            # Fixed model specification; no selection or promotion on the final test month.
+            model = stage_call("Fit model", new_model().fit, history[FEATURES], history.target.astype(int))
+            report["model_source"] = "initial_training"
         eligible = (current.history_months >= 3) & (current.consecutive_inactive_months < 3)
         if eligible.any():
             inputs = current.loc[eligible, FEATURES]
             probability = model.predict_proba(inputs)[:, 1]
             current.loc[eligible, "churn_probability"] = probability
             # Group replacement sensitivity is a model explanation, not a causal claim.
-            medians = history[FEATURES].median()
+            medians = pd.Series(model_bundle["reference_medians"]) if model_bundle else history[FEATURES].median()
             contributions = {}
             for domain, title in DOMAINS.items():
                 altered = inputs.copy()
@@ -104,10 +112,14 @@ def predict(snapshots, panel, latest, run_dir):
             for index, row in effects.iterrows():
                 factors = row[row > 0.005].nlargest(2).index.tolist()
                 current.loc[index, "model_factors"] = "، ".join(factors)
-        joblib.dump({"pipeline": model, "features": FEATURES, "version": VERSION,
-                     "trained_through": str(latest), "latest_training_snapshot": history.snapshot_month.max()}, run_dir / "retention_model.pkl")
-        report.update(status="trained", mature_training_rows=len(history),
-                      evaluation_status="held_out" if "candidate_test" in report else "insufficient_history_for_independent_evaluation")
+        report.update(status="trained")
+        if model_bundle is None:
+            report.update(mature_training_rows=len(history),
+                          evaluation_status="held_out" if "candidate_test" in report else "insufficient_history_for_independent_evaluation")
+            model_bundle = {"pipeline": model, "features": FEATURES, "version": VERSION,
+                            "trained_through": str(latest), "latest_training_snapshot": history.snapshot_month.max(),
+                            "reference_medians": history[FEATURES].median().to_dict(), "evaluation": dict(report)}
+        joblib.dump(model_bundle, run_dir / "retention_model.pkl")
     else:
         report["reason"] = "Need at least 30 mature customer snapshots and five examples of each outcome. No probability is fabricated."
     statuses, levels, reasons = [], [], []

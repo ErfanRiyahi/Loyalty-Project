@@ -15,6 +15,9 @@ PATHS = {
     "/cluster",
     "/churn/assess",
     "/monthly/update",
+    "/churn/update",
+    "/adaptive/update",
+    "/adaptive/rollback",
 }
 
 
