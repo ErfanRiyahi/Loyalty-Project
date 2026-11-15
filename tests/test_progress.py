@@ -131,6 +131,6 @@ def test_monthly_job_reports_processed_rows_and_real_model_stages(tmp_path):
     assert len(source_events)==3
     assert all(e['completed_units']==108 and e['total_units'] is None for e in source_events)
     labels=[e['label'] for e in report['events']]
-    assert 'Train and evaluate next-month prediction' in labels
+    assert 'Train and evaluate three-month inactivity prediction' in labels
     assert 'Validate cluster quality and stability' in labels
     assert 'Save output file' in labels

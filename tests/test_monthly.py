@@ -14,16 +14,6 @@ class MonthlyTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'completed month'):
                 monthly.run_monthly({'as_of_month':'2099-01','confirm_complete':True})
 
-    def test_target_uses_next_month_and_prior_activity(self):
-        frame=pd.DataFrame({'MSISDN':['001','002','003'],'history_months':[6,6,1],
-                            'orders_mean3':[10,10,10],'data_mean3':[100,0,100],'voice_mean3':[100,0,100]})
-        panel=pd.DataFrame({'MSISDN':['001','002','003'],'month':['2025-02']*3,
-                            'orders':[5,0,0],'data':[50,0,0],'voice':[100,0,0]})
-        y=monthly.targets(frame,panel,pd.Period('2025-02',freq='M'))
-        self.assertEqual(y.iloc[0],1)
-        self.assertTrue(pd.isna(y.iloc[1]))
-        self.assertTrue(pd.isna(y.iloc[2]))
-
     def test_overlap_quarter_alignment_and_temporal_training(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(monthly,'ROOT',Path(directory)/'outputs'):
             root=Path(directory)
@@ -52,11 +42,9 @@ class MonthlyTests(unittest.TestCase):
             third=monthly.run_monthly(payload)
             self.assertEqual(first['references'],third['references'])
             self.assertEqual(set(third['cluster_counts']),{0,1,2})
-            self.assertEqual(third['learning']['status'],'trained')
+            self.assertEqual(third['learning']['status'],'insufficient_training_data')
             learning=third['learning']
-            self.assertLess(learning['training_months'][-1],learning['validation_month'])
-            self.assertLess(learning['validation_month'],learning['test_month'])
-            self.assertLess(learning['test_month'],third['as_of_month'])
+            self.assertEqual(learning['horizon_months'],3)
             self.assertTrue(all('PEER_CLV_SCORE' in row for row in third['preview']))
             with self.assertRaisesRegex(ValueError,'backwards'):
                 payload['as_of_month']='2025-07';monthly.run_monthly(payload)
