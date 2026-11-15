@@ -3,8 +3,6 @@ const persianLabels = {
   "Inspect dataset": "بررسی داده‌ها",
   ": rows read and processed": ": داده‌های خوانده‌شده و پردازش‌شده",
   "Prepare model features": "آماده‌سازی و مقیاس‌بندی ویژگی‌ها",
-  "Train and evaluate next-month prediction":
-    "آموزش و ارزیابی پیش‌بینی ماه بعد",
   "Merge scores and cluster customers": "ادغام امتیازها و خوشه‌بندی سه‌گانه",
   "Assess risk from final scores": "ارزیابی خطر از امتیازهای نهایی",
   "Validate cluster quality and stability": "ارزیابی کیفیت و پایداری خوشه‌ها",
@@ -15,6 +13,7 @@ const persianLabels = {
   "Fit model and assign clusters": "برازش مدل و تخصیص خوشه‌ها",
   "Filter outliers and calculate ARPU":
     "برش مقادیر دورافتاده و محاسبه درآمد (ARPU)",
+  "Train and evaluate three-month inactivity prediction": "آموزش و ارزیابی پیش‌بینی ریزش سه‌ماهه",
   "Update monthly learning": "به‌روزرسانی ماهانه",
   "Combine temporal stability scores": "ترکیب امتیاز نهایی پایداری",
   "The report limit has been reached. Please try again later.":

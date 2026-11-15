@@ -79,12 +79,14 @@ def save_model_registry(registry):
 
 # Merge six score outputs and run K-Means with three clusters on unscaled features.
 @stage("Merge scores and cluster customers")
-def run_clustering(run_stability=True):
+def run_clustering(run_stability=True, score_files=None, source_labels=None):
     """Same logic as cluster_v3.md's merge -> tier split -> K-Means, packaged
     to run inside the request instead of a notebook. Raises if a required
     *_SCORE.csv is missing — run the corresponding tab (or /cluster with
     run_missing=true) first."""
-    missing_files = [f for f in SCORE_FILES.values() if not os.path.exists(f)]
+    score_files = SCORE_FILES if score_files is None else score_files
+    source_labels = source_labels or {}
+    missing_files = [f for f in score_files.values() if not os.path.exists(f)]
     if missing_files:
         raise FileNotFoundError(
             f"Missing score file(s): {missing_files}. Run each standard's tab "
@@ -105,7 +107,7 @@ def run_clustering(run_stability=True):
         source = stage_call(
             "Read data file",
             pd.read_csv,
-            SCORE_FILES[key],
+            score_files[key],
             dtype={"MSISDN": "string"},
             usecols=["MSISDN"] + columns,
         )
@@ -127,9 +129,9 @@ def run_clustering(run_stability=True):
             {
                 "standard": key,
                 "rows": len(source),
-                "path": SCORE_FILES[key],
+                "path": source_labels.get(key, str(score_files[key])),
                 "modified_at": pd.Timestamp(
-                    os.path.getmtime(SCORE_FILES[key]), unit="s", tz="UTC"
+                    os.path.getmtime(score_files[key]), unit="s", tz="UTC"
                 ).isoformat(),
             }
         )

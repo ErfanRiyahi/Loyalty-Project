@@ -1,5 +1,7 @@
 from ..progress import stage, stage_call, units, stage_scope
 from flask import Blueprint, send_file
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from ..common import *
 from .scoring import CI_DOMAINS, TS_DOMAINS
 from ..services.clustering import *
@@ -12,6 +14,15 @@ app = Blueprint("clustering", __name__)
 def cluster_route():
     try:
         payload = request.get_json(silent=True) or {}
+        if request.mimetype == "multipart/form-data":
+            payload = json.loads(request.form.get("payload", "{}"))
+        if not isinstance(payload, dict):
+            raise ValueError("Input must be an object.")
+        custom = payload.get("input_mode", "latest") == "custom"
+        if payload.get("input_mode", "latest") not in ["latest", "custom"]:
+            raise ValueError("Unknown input mode.")
+        if custom and payload.get("run_missing"):
+            raise ValueError("Custom score files cannot be combined with run_missing.")
 
         if payload.get("run_missing"):
             # run each standard/domain with its default source file + the
@@ -114,8 +125,30 @@ def cluster_route():
         run_stability = payload.get("run_stability", True)
         if not isinstance(run_stability, bool):
             raise ValueError("run_stability must be true or false.")
-        result = run_clustering(run_stability=run_stability)
+        if custom:
+            paths = payload.get("sources", {})
+            if not isinstance(paths, dict) or set(paths) - set(SCORE_FILES):
+                raise ValueError("Unknown score source.")
+            with TemporaryDirectory(prefix="loyalty-scores-") as directory:
+                selected, labels = {}, {}
+                for key in SCORE_FILES:
+                    upload = request.files.get(key)
+                    if upload and upload.filename:
+                        target = Path(directory) / (key + ".csv")
+                        upload.save(target)
+                        selected[key] = str(target)
+                        labels[key] = upload.filename.replace("\\", "/").split("/")[-1]
+                    else:
+                        path = paths.get(key)
+                        if not isinstance(path, str) or not path.strip():
+                            raise ValueError(f"Select a scored CSV for {key}.")
+                        selected[key] = path.strip()
+                result = run_clustering(run_stability=run_stability, score_files=selected, source_labels=labels)
+        else:
+            result = run_clustering(run_stability=run_stability)
         return jsonify(json_safe(result))
+    except (ValueError, FileNotFoundError) as e:
+        return jsonify(error=str(e)), 400
     except Exception as e:
         return build_error_response(e)
 
@@ -188,3 +221,15 @@ def download_validation():
     if not path.exists():
         return jsonify(error="Run clustering first to generate validation."), 404
     return send_file(path, as_attachment=True)
+
+
+@app.get("/cluster/sources")
+def cluster_sources():
+    sources = []
+    for key, filename in SCORE_FILES.items():
+        path = Path(filename)
+        exists = path.is_file()
+        sources.append({"standard": key, "path": str(path), "name": path.name,
+                        "exists": exists,
+                        "modified_at": pd.Timestamp(path.stat().st_mtime, unit="s", tz="UTC").isoformat() if exists else None})
+    return jsonify(sources=sources)

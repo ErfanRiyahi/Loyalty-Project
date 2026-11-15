@@ -1,23 +1,9 @@
 <div class="tab-panel" id="tabChurn">
  <div class="panel">
-  <h2>پیش‌بینی افت فعالیت</h2>
-  
-  <label for="churnMethod">روش ارزیابی</label>
-  <select id="churnMethod">
-    <option value="trained_monthly" selected>مدل ماهانه آموزش‌دیده: افت فعالیت ماه بعد</option>
-    <option value="domain_balanced">آزمایشی: توازن حوزه‌ها و بررسی شواهد</option>
-    <option value="baseline">روش پایه: وزن برابر برای هر امتیاز</option>
-  </select>
-  
-  <label for="churnFile">بارگذاری فایل CSV نهایی امتیازدهی‌شده</label>
-  <input id="churnFile" type="file" accept=".csv">
-  <label for="churnPath">یا مسیر فایل قابل دسترسی برای سرور Python</label>
-  <input id="churnPath" type="text" placeholder="برای استفاده از آخرین فایل customer_segmentation_final.csv خالی بگذارید">
-  
-  
-  
-  <button id="runChurnBtn" class="run-btn" type="button">ارزیابی خطر افت فعالیت</button>
+  <h2>مشتریان در معرض ریزش</h2>
+  <p>ریزش یعنی سه ماه متوالی بدون خرید موفق، مصرف اینترنت یا مکالمه در منابع ثبت‌شده. این فهرست از آخرین اجرای یادگیری ماهانه تهیه می‌شود.</p>
+  <button id="runChurnBtn" class="run-btn" type="button">نمایش فهرست مشتریان</button>
  </div>
- <div id="churnStatusArea"></div>
+ <div id="churnStatusArea" role="status"></div>
  <div id="churnResultsArea"></div>
 </div>
