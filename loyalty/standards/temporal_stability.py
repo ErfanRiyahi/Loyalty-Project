@@ -1,9 +1,13 @@
+from ..progress import stage, stage_call, units, stage_scope
 import pandas as pd
 import numpy as np
+
 
 # --------------------------------------------------------------------------
 # Clean data
 # --------------------------------------------------------------------------
+# Apply existing cleaning rules, including identifier conversion and filtering.
+@stage("Clean data and convert types")
 def clean_data(df, columns):
     user_id, date_name, usage_name = columns
     df = df.copy()
@@ -66,6 +70,7 @@ def calculate_LRD(df, columns):
 # --------------------------------------------------------------------------
 # Calculate RI (Recency Index) = RR (Revenue Recency) + UR (Usage Recency)
 # --------------------------------------------------------------------------
+@stage("Calculate purchase recency")
 def calculate_RR(df_order_cleaned, columns_order):
     result_RR = calculate_LRD(df_order_cleaned, columns_order)
     today_RR = result_RR["LRD"].max()
@@ -75,6 +80,7 @@ def calculate_RR(df_order_cleaned, columns_order):
     return result_RR, today_RR
 
 
+@stage("Calculate usage recency")
 def calculate_UR(df_data_cleaned, df_voice_cleaned, columns_data, columns_voice):
     result_data = calculate_LRD(df_data_cleaned, columns_data)
     result_voice = calculate_LRD(df_voice_cleaned, columns_voice)
@@ -99,20 +105,25 @@ def calculate_RI(result_RR, result_UR):
 # --------------------------------------------------------------------------
 # Calculate RM (Recency Momentum)
 # --------------------------------------------------------------------------
-def calculate_RM(df_order_cleaned, df_data_cleaned, df_voice_cleaned, columns_order, columns_data, columns_voice):
-    RM_R = (
-        df_order_cleaned.groupby("MSISDN", as_index=False)
-        .agg(EVENT_DATE=(columns_order[1], lambda x: sorted(x)))
+@stage("Calculate active months")
+def calculate_RM(
+    df_order_cleaned,
+    df_data_cleaned,
+    df_voice_cleaned,
+    columns_order,
+    columns_data,
+    columns_voice,
+):
+    RM_R = df_order_cleaned.groupby("MSISDN", as_index=False).agg(
+        EVENT_DATE=(columns_order[1], lambda x: sorted(x))
     )
 
-    RM_U1 = (
-        df_data_cleaned.groupby("MSISDN", as_index=False)
-        .agg(EVENT_DATE=(columns_data[1], lambda x: sorted(x)))
+    RM_U1 = df_data_cleaned.groupby("MSISDN", as_index=False).agg(
+        EVENT_DATE=(columns_data[1], lambda x: sorted(x))
     )
 
-    RM_U2 = (
-        df_voice_cleaned.groupby("MSISDN", as_index=False)
-        .agg(EVENT_DATE=(columns_voice[1], lambda x: sorted(x)))
+    RM_U2 = df_voice_cleaned.groupby("MSISDN", as_index=False).agg(
+        EVENT_DATE=(columns_voice[1], lambda x: sorted(x))
     )
 
     RM_U = pd.concat([RM_U1, RM_U2], ignore_index=True)
@@ -124,9 +135,7 @@ def calculate_RM(df_order_cleaned, df_data_cleaned, df_voice_cleaned, columns_or
 
     RM = pd.concat([RM_R, RM_U], ignore_index=True)
     RM = (
-        RM.groupby("MSISDN")["EVENT_DATE"]
-        .sum()  # concatenates the lists
-        .reset_index()
+        RM.groupby("MSISDN")["EVENT_DATE"].sum().reset_index()  # concatenates the lists
     )
 
     # Keep the 3 most recent, de-duplicated event dates per MSISDN
@@ -154,6 +163,7 @@ def calculate_RM(df_order_cleaned, df_data_cleaned, df_voice_cleaned, columns_or
 # --------------------------------------------------------------------------
 # Calculate AV (Activity Velocity) = RA (Revenue Activity) + UA (Usage Activity)
 # --------------------------------------------------------------------------
+@stage("Calculate recent activity")
 def calculate_AV(df_order_cleaned, combined, columns_order, today_RR, today_UR):
     # Separate data from the last 30 days
     df_order_cleaned_30 = df_order_cleaned[
@@ -168,7 +178,9 @@ def calculate_AV(df_order_cleaned, combined, columns_order, today_RR, today_UR):
     result_UA = result_UA[["MSISDN", "UA"]]
 
     result_AV = result_RA.merge(result_UA, on="MSISDN")
-    result_AV["AV"] = np.minimum((result_AV["RA"] * 5 + result_AV["UA"] * 2) / 30, 3) / 3
+    result_AV["AV"] = (
+        np.minimum((result_AV["RA"] * 5 + result_AV["UA"] * 2) / 30, 3) / 3
+    )
 
     return result_AV
 
@@ -176,6 +188,7 @@ def calculate_AV(df_order_cleaned, combined, columns_order, today_RR, today_UR):
 # --------------------------------------------------------------------------
 # Final Calculation (TS_Score)
 # --------------------------------------------------------------------------
+@stage("Combine temporal stability scores")
 def calculate_final_score(result_RI, result_AV, RM):
     score_df = (
         result_RI[["MSISDN", "RI"]]
@@ -183,14 +196,8 @@ def calculate_final_score(result_RI, result_AV, RM):
         .merge(RM[["MSISDN", "RM_NORM"]], on="MSISDN")
     )
 
-    score_df["TS_Score"] = (
-        1
-        + 9
-        * (
-            score_df["RI"] * 0.5
-            + score_df["AV"] * 0.3
-            + score_df["RM_NORM"] * 0.2
-        )
+    score_df["TS_Score"] = 1 + 9 * (
+        score_df["RI"] * 0.5 + score_df["AV"] * 0.3 + score_df["RM_NORM"] * 0.2
     )
 
     score_df = score_df.dropna(subset="TS_Score")
@@ -202,7 +209,11 @@ def calculate_final_score(result_RI, result_AV, RM):
 # --------------------------------------------------------------------------
 # Module entry point
 # --------------------------------------------------------------------------
-def temporal_stability(df_order, order_columns, df_data, data_columns, df_voice, voice_columns):
+# Convert recency and activity continuity into temporal stability scores.
+@stage("Calculate temporal stability")
+def temporal_stability(
+    df_order, order_columns, df_data, data_columns, df_voice, voice_columns
+):
     """
     Compute the Temporal Stability score across order, data, and voice domains.
 
@@ -225,13 +236,18 @@ def temporal_stability(df_order, order_columns, df_data, data_columns, df_voice,
     result_RI = calculate_RI(result_RR, result_UR)
 
     RM = calculate_RM(
-        df_order_cleaned, df_data_cleaned, df_voice_cleaned,
-        order_columns, data_columns, voice_columns,
+        df_order_cleaned,
+        df_data_cleaned,
+        df_voice_cleaned,
+        order_columns,
+        data_columns,
+        voice_columns,
     )
 
-    result_AV = calculate_AV(df_order_cleaned, combined, order_columns, today_RR, today_UR)
+    result_AV = calculate_AV(
+        df_order_cleaned, combined, order_columns, today_RR, today_UR
+    )
 
     TS_score = calculate_final_score(result_RI, result_AV, RM)
-
 
     return TS_score

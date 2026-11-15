@@ -1,27 +1,32 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fa" dir="rtl">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Customer Loyalty Dashboard</title>
+<title>داشبورد وفاداری مشتریان</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
+<link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='brand/logo.svg') }}">
+
 </head>
 <body>
+<a class="skip-link" href="#tabMonthly">رفتن به محتوای اصلی</a>
+<div id="operationAnnouncement" class="sr-only" role="status" aria-live="polite"></div>
 <div class="wrap">
-  <h1>Customer Loyalty Dashboard</h1>
-  <div class="sub">Run Monthly Learning when new company data arrives. Review stable cluster IDs, peer scores, and next-month activity decline.</div>
+  <header class="brand-header"><img src="{{ url_for('static', filename='brand/logo.svg') }}" width="58" height="58" alt="نشان وفاداری مشتریان"><div><span class="eyebrow">CUSTOMER LOYALTY</span><h1>داشبورد وفاداری مشتریان</h1></div><span class="version-tag">نسخه ۳ ـ اصلاح‌شده</span></header>
+  <div class="sub">محیط تحلیل مشتریان</div>
 
-  <div class="tabs">
-    <button class="tab-btn" id="tabBtnStandard" type="button">Standard Scoring</button>
-    <button class="tab-btn" id="tabBtnCI" type="button">Consistency Index</button>
-    <button class="tab-btn" id="tabBtnTS" type="button">Temporal Stability</button>
-    <button class="tab-btn" id="tabBtnDS" type="button">Dataset Overview</button>
-    <button class="tab-btn" id="tabBtnCluster" type="button">Cluster</button>
-    <button class="tab-btn" id="tabBtnChurn" type="button">Churn Prediction</button>
-    <button class="tab-btn active" id="tabBtnMonthly" type="button">Monthly Learning</button>
-  </div>
+  <nav class="tabs" aria-label="بخش‌های داشبورد">
+    <button class="tab-btn" id="tabBtnStandard" type="button"><span lang="fa" dir="rtl">&#1575;&#1605;&#1578;&#1740;&#1575;&#1586;&#1583;&#1607;&#1740; &#1605;&#1593;&#1740;&#1575;&#1585;&#1607;&#1575;</span><small lang="en" dir="ltr">Standard Scoring</small></button>
+    <button class="tab-btn" id="tabBtnCI" type="button"><span lang="fa" dir="rtl">&#1588;&#1575;&#1582;&#1589; &#1587;&#1575;&#1586;&#1711;&#1575;&#1585;&#1740;</span><small lang="en" dir="ltr">Consistency Index</small></button>
+    <button class="tab-btn" id="tabBtnTS" type="button"><span lang="fa" dir="rtl">&#1662;&#1575;&#1740;&#1583;&#1575;&#1585;&#1740; &#1586;&#1605;&#1575;&#1606;&#1740;</span><small lang="en" dir="ltr">Temporal Stability</small></button>
+    <button class="tab-btn" id="tabBtnDS" type="button"><span lang="fa" dir="rtl">&#1588;&#1606;&#1575;&#1582;&#1578; &#1583;&#1575;&#1583;&#1607;&#8204;&#1607;&#1575;</span><small lang="en" dir="ltr">Dataset Overview</small></button>
+    <button class="tab-btn" id="tabBtnCluster" type="button"><span lang="fa" dir="rtl">&#1582;&#1608;&#1588;&#1607;&#8204;&#1576;&#1606;&#1583;&#1740;</span><small lang="en" dir="ltr">Clustering</small></button>
+    <button class="tab-btn" id="tabBtnChurn" type="button"><span lang="fa" dir="rtl">&#1662;&#1740;&#1588;&#8204;&#1576;&#1740;&#1606;&#1740; &#1575;&#1601;&#1578; &#1601;&#1593;&#1575;&#1604;&#1740;&#1578;</span><small lang="en" dir="ltr">Activity Decline Prediction</small></button>
+    <button class="tab-btn active" id="tabBtnMonthly" type="button"><span lang="fa" dir="rtl">&#1740;&#1575;&#1583;&#1711;&#1740;&#1585;&#1740; &#1605;&#1575;&#1607;&#1575;&#1606;&#1607;</span><small lang="en" dir="ltr">Monthly Learning</small></button>
+  </nav>
 
+  <main class="workspace" dir="ltr">
   {% include 'tabs/standard.html' %}
   {% include 'tabs/consistency.html' %}
   {% include 'tabs/temporal.html' %}
@@ -29,9 +34,11 @@
   {% include 'tabs/cluster.html' %}
   {% include 'tabs/churn.html' %}
   {% include 'tabs/monthly.html' %}
+  </main>
 </div>
 
 <script defer src="{{ url_for('static', filename='js/shared.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/progress.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/standard.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/consistency.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/temporal.js') }}"></script>

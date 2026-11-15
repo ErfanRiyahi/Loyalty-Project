@@ -1,19 +1,15 @@
-  <div class="tab-panel" id="tabDS">
-    <div class="panel">
-      <label>Backend API URL</label>
-      <input type="text" id="dsApiUrl" value="/dataset_overview">
-      <div class="hint">Just point at a dataset to get a quick profile: shape, column types, missing values, and distributions for numeric columns.</div>
-
-      <label>Dataset address</label>
-      <input type="text" id="dsDatasetAddress" placeholder="{{ defaults.standards.ARPU_CLV_GROWTH.path }}" value="{{ defaults.standards.ARPU_CLV_GROWTH.path }}">
-
-      <label>Columns to read (optional)</label>
-      <input type="text" id="dsColumns" placeholder="Leave blank to read all columns, or comma-separate: MSISDN, PaidDateUtc, OrderTotal">
-
-      <button class="run-btn" id="runDSBtn" type="button">Run</button>
+<div class="tab-panel" id="tabDS">
+  <div class="panel">
+    <label for="dsApiUrl">نشانی سرویس پردازش</label><input type="text" id="dsApiUrl" value="/dataset_overview">
+    <label for="dsDatasetAddress">مسیر فایل داده</label><input type="text" id="dsDatasetAddress" value="{{ defaults.standards.ARPU_CLV_GROWTH.path }}">
+    <div class="profile-fields">
+      <div><label for="dsDateColumn">ستون تاریخ</label><input type="text" id="dsDateColumn" list="profileColumnNames" placeholder="مثال: PaidDateUtc"></div>
+      <div><label for="dsUsageColumn">ستون میزان مصرف</label><input type="text" id="dsUsageColumn" list="profileColumnNames" placeholder="مثال: OrderTotal"></div>
+      <div><label for="dsUserColumn">ستون شناسه مشتری (اختیاری)</label><input type="text" id="dsUserColumn" list="profileColumnNames" placeholder="مثال: MSISDN"></div>
+      <div><label for="dsFrequency">تجمیع میزان مصرف بر اساس</label><select id="dsFrequency"><option value="day">روز</option><option value="week">هفته</option><option value="month">ماه</option></select></div>
     </div>
-
-    <div id="dsStatusArea"></div>
-    <div id="dsResultsArea"></div>
+    <datalist id="profileColumnNames"></datalist>
+    <button class="run-btn" id="runDSBtn" type="button">بررسی داده‌ها</button>
   </div>
-
+  <div id="dsStatusArea"></div><div id="dsResultsArea"></div>
+</div>

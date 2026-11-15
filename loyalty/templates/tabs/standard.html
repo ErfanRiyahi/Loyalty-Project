@@ -1,26 +1,26 @@
   <div class="tab-panel" id="tabStandard">
     <div class="panel">
-      <label>Backend API URL</label>
+      <label>نشانی سرویس پردازش</label>
       <input type="text" id="apiUrl" value="/analyze">
-      <div class="hint">Where your Python backend is listening. Change this if it's hosted elsewhere.</div>
+      
 
-      <label>Dataset address</label>
+      <label>مسیر فایل داده</label>
       <input type="text" id="datasetAddress" placeholder="{{ defaults.standards.ARPU_CLV_GROWTH.path }}" value="{{ defaults.standards.ARPU_CLV_GROWTH.path }}">
 
-      <label>Required columns (order matters)</label>
+      <label>ستون‌ها به‌ترتیب: شناسه مشتری، تاریخ، مقدار</label>
       <div id="columnsList"></div>
-      <button class="add-col" id="addColumnBtn" type="button">+ add column</button>
+      <button class="add-col" id="addColumnBtn" type="button">+ افزودن ستون</button>
 
-      <div class="hint">Selecting a standard fills its dataset path and column mapping. You can edit them afterward. Paths must be accessible to the Python server.</div>
-      <label>Standard</label>
+      
+      <label>معیار امتیازدهی</label>
       <select id="standard">
-        <option value="ARPU_CLV_GROWTH" data-path="{{ defaults.standards['ARPU_CLV_GROWTH'].path }}" data-columns='{{ defaults.standards["ARPU_CLV_GROWTH"].columns | tojson }}'>ARPU-CLV-GROWTH</option>      
-        <option value="DATA_USAGE" data-path="{{ defaults.standards['DATA_USAGE'].path }}" data-columns='{{ defaults.standards["DATA_USAGE"].columns | tojson }}'>Data Usage Score</option>
-        <option value="VOICE_USAGE" data-path="{{ defaults.standards['VOICE_USAGE'].path }}" data-columns='{{ defaults.standards["VOICE_USAGE"].columns | tojson }}'>Call Duration Score</option>
-        <option value="Transaction_Frequency" data-path="{{ defaults.standards['Transaction_Frequency'].path }}" data-columns='{{ defaults.standards["Transaction_Frequency"].columns | tojson }}'>Transaction Frequency Score</option>
+        <option value="ARPU_CLV_GROWTH" data-path="{{ defaults.standards['ARPU_CLV_GROWTH'].path }}" data-columns='{{ defaults.standards["ARPU_CLV_GROWTH"].columns | tojson }}'>درآمد، ارزش طول عمر و رشد</option>      
+        <option value="DATA_USAGE" data-path="{{ defaults.standards['DATA_USAGE'].path }}" data-columns='{{ defaults.standards["DATA_USAGE"].columns | tojson }}'>امتیاز مصرف اینترنت</option>
+        <option value="VOICE_USAGE" data-path="{{ defaults.standards['VOICE_USAGE'].path }}" data-columns='{{ defaults.standards["VOICE_USAGE"].columns | tojson }}'>امتیاز مدت مکالمه</option>
+        <option value="Transaction_Frequency" data-path="{{ defaults.standards['Transaction_Frequency'].path }}" data-columns='{{ defaults.standards["Transaction_Frequency"].columns | tojson }}'>امتیاز تعداد تراکنش</option>
       </select>
 
-      <button class="run-btn" id="runBtn" type="button">Run</button>
+      <button class="run-btn" id="runBtn" type="button">محاسبه امتیاز</button>
     </div>
 
     <div id="statusArea"></div>

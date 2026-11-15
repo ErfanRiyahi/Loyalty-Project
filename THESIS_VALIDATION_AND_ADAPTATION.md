@@ -10,7 +10,7 @@ The customer-ID cleaners have not been changed because the source formats are un
 
 ## Algorithms currently used
 
-Clustering remains KMeans with **k=3**, `n_init=10`, and `random_state=42`. It fits multi-domain customers using RobustScaler on continuous features plus weighted binary flags. Cluster names are assigned by ranking average engagement; these names are interpretations, not observed churn outcomes. Customers with fewer than two present score groups remain outside KMeans in the Limited tier. Neither silhouette nor the cluster named At-Risk/Churning proves that a customer will churn.
+Clustering remains KMeans with **k=3**, `n_init=10`, and `random_state=42`. It fits multi-domain customers using the existing continuous features and binary flags with their configured weights, without rescaling. Cluster names are assigned by ranking average engagement; these names are interpretations, not observed churn outcomes. Customers with fewer than two present score groups remain outside KMeans in the Limited tier. Neither silhouette nor the cluster named At-Risk/Churning proves that a customer will churn.
 
 The original churn method is a deterministic, unsupervised rank-based screening rule. It never learned a relationship between past behavior and future churn. For each score column, present and informative values receive average ranks for ties:
 

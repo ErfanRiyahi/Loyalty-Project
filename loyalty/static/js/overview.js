@@ -1,95 +1,193 @@
-// ---------- Dataset Overview tab ----------
-const dsStatusArea = document.getElementById('dsStatusArea');
-const dsResultsArea = document.getElementById('dsResultsArea');
-const runDSBtn = document.getElementById('runDSBtn');
+const dsStatusArea = document.getElementById("dsStatusArea");
+const dsResultsArea = document.getElementById("dsResultsArea");
+const runDSBtn = document.getElementById("runDSBtn");
 
+// Display basic statistics, column names and the time chart in the existing panels.
 function renderDSResults(data) {
-  const overview = data.dataset_overview || {};
-  const numericStats = data.numeric_stats || {};
-  const columnInfo = overview.column_info || [];
+  const summary = data.dataset_overview || {};
+  const series = data.time_series;
+  const columns = summary.column_info || [];
 
-  let colInfoHtml = '';
-  if (columnInfo.length > 0) {
-    colInfoHtml = `<table><thead><tr><th>Column</th><th>Type</th><th>Missing</th><th>Unique</th></tr></thead><tbody>`;
-    columnInfo.forEach(c => {
-      colInfoHtml += `<tr><td>${escapeHtml(c.name)}</td><td>${escapeHtml(c.dtype)}</td><td>${c.missing}</td><td>${c.unique}</td></tr>`;
-    });
-    colInfoHtml += `</tbody></table>`;
+  // Keep original column names for input suggestions.
+  document.getElementById("profileColumnNames").innerHTML = columns
+    .map((column) => {
+      return `<option value="${escapeHtml(column.name)}"></option>`;
+    })
+    .join("");
+
+  function metricCard(label, value) {
+    const number = Number(value || 0).toLocaleString("fa-IR");
+    return `<div class="profile-metric"><span>${label}</span><strong>${number}</strong></div>`;
+  }
+  let metrics = metricCard("ردیف‌ها", summary.rows);
+  metrics += metricCard("ستون‌ها", summary.columns);
+  metrics += metricCard("مقادیر تهی", summary.null_values);
+  metrics += metricCard("ردیف‌های دارای مقدار تهی", summary.rows_with_nulls);
+  metrics += metricCard("ردیف‌های تکراری", summary.duplicate_rows);
+  if (summary.unique_users !== undefined) {
+    metrics += metricCard("کاربران یکتا", summary.unique_users);
+  }
+  if (series) {
+    metrics += metricCard("تاریخ‌های نامعتبر", summary.invalid_dates);
+    metrics += metricCard("مقادیر مصرف نامعتبر", summary.invalid_usage);
+    metrics += metricCard(
+      "ردیف‌های استفاده‌شده در نمودار",
+      summary.rows_used_in_chart,
+    );
+    metrics += metricCard(
+      "ردیف‌های کنارگذاشته‌شده از نمودار",
+      summary.rows_excluded_from_chart,
+    );
   }
 
-  let previewHtml = '';
-  if (Array.isArray(overview.preview) && overview.preview.length > 0) {
-    const cols = Object.keys(overview.preview[0]);
-    previewHtml = `<table><thead><tr>${cols.map(c => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead><tbody>`;
-    overview.preview.slice(0, 5).forEach(row => {
-      previewHtml += `<tr>${cols.map(c => `<td>${escapeHtml(String(row[c] ?? ''))}</td>`).join('')}</tr>`;
-    });
-    previewHtml += `</tbody></table>`;
+  const memory = (Number(summary.memory_bytes || 0) / 1048576).toFixed(2);
+  let metadata = `حافظه: ${memory} مگابایت`;
+  if (summary.date_range) {
+    const firstDate = summary.date_range.start?.slice(0, 10) || "نامشخص";
+    const lastDate = summary.date_range.end?.slice(0, 10) || "نامشخص";
+    metadata += ` | بازه تاریخ: ${escapeHtml(firstDate)} - ${escapeHtml(lastDate)}`;
   }
 
-  let numericPanelsHtml = '';
-  Object.keys(numericStats).forEach((col, i) => {
-    numericPanelsHtml += buildStatsPanelHtml(numericStats[col], `dsStatsChart_${i}`);
-  });
+  let chartContent =
+    '<p class="empty-state">نام ستون تاریخ و میزان مصرف را در بالا وارد کنید و دوباره داده‌ها را بررسی کنید.</p>';
+  if (series) {
+    chartContent =
+      '<p class="empty-state">ردیفی با تاریخ و میزان مصرف معتبر موجود نیست.</p>';
+    if (series.points.length > 0) {
+      const frequency = escapeHtml(persianLabel(series.frequency));
+      chartContent = `
+        <p class="compact-meta">${escapeHtml(series.usage_column)} | مجموع در هر ${frequency} | زمان UTC</p>
+        <div class="summary-chart"><canvas id="profileTimeChart" role="img" aria-label="میزان مصرف در طول زمان"></canvas></div>`;
+    }
+  }
+
+  const columnRows = columns
+    .map((column) => {
+      return `<tr><td>${escapeHtml(column.name)}</td><td>${escapeHtml(column.dtype)}</td><td>${column.nulls}</td><td>${column.null_percentage}%</td><td>${column.unique}</td></tr>`;
+    })
+    .join("");
+
+  // Use the preview only for inspection; compute statistics and charts from all rows.
+  const preview = summary.preview || [];
+  let previewPanel = "";
+  if (preview.length > 0) {
+    const names = Object.keys(preview[0]);
+    const headers = names
+      .map((name) => `<th>${escapeHtml(name)}</th>`)
+      .join("");
+    const rows = preview
+      .map((row) => {
+        const cells = names
+          .map((name) => `<td>${escapeHtml(row[name] ?? "تهی")}</td>`)
+          .join("");
+        return `<tr>${cells}</tr>`;
+      })
+      .join("");
+    previewPanel = `
+      <section class="panel"><h2>پنج ردیف نخست</h2>
+        <div class="table-scroll"><table><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table></div>
+      </section>`;
+  }
 
   dsResultsArea.innerHTML = `
-    <div class="panel">
-      <h2>Shape</h2>
-      <div class="kv"><span class="k">Rows</span><span>${overview.rows ?? '—'}</span></div>
-      <div class="kv"><span class="k">Columns</span><span>${overview.columns ?? '—'}</span></div>
-    </div>
-    ${colInfoHtml ? `
-    <div class="panel">
-      <h2>Columns</h2>
-      ${colInfoHtml}
-    </div>` : ''}
-    ${previewHtml ? `
-    <div class="panel">
-      <h2>Preview (first 5 rows)</h2>
-      ${previewHtml}
-    </div>` : ''}
-    ${numericPanelsHtml}
-  `;
-
-  Object.keys(numericStats).forEach((col, i) => {
-    renderStatsChart(numericStats[col], `dsStatsChart_${i}`);
-  });
+    <section class="panel">
+      <div class="result-summary"><h2>اطلاعات اولیه داده‌ها</h2>${downloadButton(data.download_url, "دانلود گزارش")}</div>
+      <div class="profile-metrics">${metrics}</div>
+      <p class="compact-meta">${metadata}</p>
+    </section>
+    <section class="panel"><h2>میزان مصرف در طول زمان</h2>${chartContent}</section>
+    <section class="panel"><h2>ستون‌ها</h2>
+      <div class="table-scroll"><table>
+        <thead><tr><th>نام</th><th>نوع</th><th>تهی</th><th>درصد تهی</th><th>یکتا</th></tr></thead>
+        <tbody>${columnRows}</tbody>
+      </table></div>
+    </section>
+    ${previewPanel}`;
+  if (series?.points.length) {
+    replaceChart("profileTimeChart", {
+      type: "line",
+      data: {
+        datasets: [
+          {
+            label: series.usage_column,
+            data: series.points.map((point) => ({
+              x: Date.parse(point.date),
+              y: point.usage,
+            })),
+            borderColor: "#11645b",
+            backgroundColor: "#11645b",
+            pointRadius: series.points.length > 100 ? 1 : 3,
+            tension: 0,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              title: (items) =>
+                new Date(items[0].parsed.x).toISOString().slice(0, 10),
+            },
+          },
+        },
+        scales: {
+          x: {
+            type: "linear",
+            title: { display: true, text: series.date_column },
+            ticks: {
+              maxTicksLimit: 6,
+              callback: (value) => new Date(value).toISOString().slice(0, 10),
+            },
+          },
+          y: { title: { display: true, text: "مجموع مصرف" } },
+        },
+      },
+    });
+  }
 }
-
+// Read both column names; the input file must be accessible to the Python server.
 async function runDatasetOverview() {
-  const apiUrl = document.getElementById('dsApiUrl').value.trim();
-  const datasetAddress = document.getElementById('dsDatasetAddress').value.trim();
-  const columnsRaw = document.getElementById('dsColumns').value.trim();
-  const columns = columnsRaw ? columnsRaw.split(',').map(c => c.trim()).filter(c => c) : null;
-
-  if (!apiUrl) { setError('Please provide the backend API URL.', dsStatusArea, dsResultsArea); return; }
-  if (!datasetAddress) { setError('Please provide a dataset address.', dsStatusArea, dsResultsArea); return; }
-
+  const path = document.getElementById("dsDatasetAddress").value.trim();
+  const dateColumn = document.getElementById("dsDateColumn").value,
+    usageColumn = document.getElementById("dsUsageColumn").value;
+  if (!path) {
+    setError("مسیر فایل داده را وارد کنید.", dsStatusArea, dsResultsArea);
+    return;
+  }
+  if (Boolean(dateColumn) !== Boolean(usageColumn)) {
+    setError(
+      "نام هر دو ستون تاریخ و میزان مصرف را وارد کنید.",
+      dsStatusArea,
+      dsResultsArea,
+    );
+    return;
+  }
   runDSBtn.disabled = true;
-  setLoading(dsStatusArea, dsResultsArea, 'Profiling dataset…');
-
+  setLoading(dsStatusArea, dsResultsArea);
   try {
-    const body = { dataset_address: datasetAddress };
-    if (columns) body.columns = columns;
-
-    const data = await postJson(apiUrl, body);
-
+    const data = await postJson(
+      document.getElementById("dsApiUrl").value.trim(),
+      {
+        dataset_address: path,
+        date_column: dateColumn || null,
+        usage_column: usageColumn || null,
+        user_column: document.getElementById("dsUserColumn").value || null,
+        frequency: document.getElementById("dsFrequency").value,
+      },
+    );
     clearStatus(dsStatusArea);
-    try {
-      renderDSResults(data);
-    } catch (renderErr) {
-      setError({ source: 'frontend', message: renderErr.message || String(renderErr), trace: renderErr.stack || null }, dsStatusArea, dsResultsArea);
-    }
-  } catch (err) {
-    if (err && err.isBackendError) {
-      setError({ source: 'backend', message: err.message, location: err.location, trace: err.trace }, dsStatusArea, dsResultsArea);
-    } else {
-      setError({ source: 'frontend', message: (err && err.message) || String(err), trace: err && err.stack ? err.stack : null }, dsStatusArea, dsResultsArea);
-    }
+    renderDSResults(data);
+  } catch (error) {
+    setError(
+      { message: error.message, trace: error.trace },
+      dsStatusArea,
+      dsResultsArea,
+    );
   } finally {
     runDSBtn.disabled = false;
   }
 }
-
-runDSBtn.addEventListener('click', runDatasetOverview);
-
+runDSBtn.addEventListener("click", runDatasetOverview);

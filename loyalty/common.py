@@ -1,3 +1,4 @@
+from .progress import stage, stage_call, units, stage_scope
 from flask import request, jsonify
 from .standards.arpu_clv_growth import arpu_clv_growth
 from .standards.data_usage import data_usage
@@ -14,10 +15,10 @@ import os
 import json
 import joblib
 from pathlib import Path
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_ROOT = Path(os.environ.get("LOYALTY_OUTPUT_ROOT", str(PROJECT_ROOT / "outputs")))
 OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
-
 
 
 # ---------------------------------------------------------------------------
@@ -26,90 +27,127 @@ OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
 DATA_ROOT = os.environ.get("LOYALTY_DATA_ROOT", r"D:\Loyality Project")
 
 SOURCE_FILES = {
-    "order":     "customer order.csv",
-    "data_cdr":  os.path.join("DataCDR", "DataCDR.csv"),
+    "order": "customer order.csv",
+    "data_cdr": os.path.join("DataCDR", "DataCDR.csv"),
     "voice_cdr": os.path.join("voicesmsCDR", "voicesmsCDR.txt"),
 }
 
 STANDARD_SOURCE_KEY = {
-    "ARPU_CLV_GROWTH":        "order",
-    "Transaction_Frequency":  "order",
-    "DATA_USAGE":             "data_cdr",
-    "VOICE_USAGE":            "voice_cdr",
+    "ARPU_CLV_GROWTH": "order",
+    "Transaction_Frequency": "order",
+    "DATA_USAGE": "data_cdr",
+    "VOICE_USAGE": "voice_cdr",
 }
-CI_DOMAIN_SOURCE_KEY = {"data": "data_cdr", "voice": "voice_cdr", "spend": "order", "txn": "order"}
+CI_DOMAIN_SOURCE_KEY = {
+    "data": "data_cdr",
+    "voice": "voice_cdr",
+    "spend": "order",
+    "txn": "order",
+}
 TS_DOMAIN_SOURCE_KEY = {"order": "order", "data": "data_cdr", "voice": "voice_cdr"}
 
 # where each standard's/domain's score is written, so /cluster can read them back
 SCORE_FILES = {
-    "ARPU_CLV_GROWTH":       "ARPU_CLV_GROWTH_SCORE.csv",
-    "DATA_USAGE":            "DATA_USAGE_SCORE.csv",
-    "VOICE_USAGE":           "VOICE_USAGE_SCORE.csv",
+    "ARPU_CLV_GROWTH": "ARPU_CLV_GROWTH_SCORE.csv",
+    "DATA_USAGE": "DATA_USAGE_SCORE.csv",
+    "VOICE_USAGE": "VOICE_USAGE_SCORE.csv",
     "Transaction_Frequency": "Transaction_Frequency_SCORE.csv",
-    "CONSISTENCY_INDEX":     "CONSISTENCY_INDEX_SCORE.csv",
-    "TEMPORAL_STABILITY":    "TEMPORAL_STABILITY_SCORE.csv",
+    "CONSISTENCY_INDEX": "CONSISTENCY_INDEX_SCORE.csv",
+    "TEMPORAL_STABILITY": "TEMPORAL_STABILITY_SCORE.csv",
 }
 
 
+# Build the input path from the data directory and source name.
 def source_path(key):
     return os.path.join(DATA_ROOT, SOURCE_FILES[key])
 
 
+# Detect only encoding and delimiter; leave column names unchanged.
 def source_read_options(path, required_columns=None):
     """Detect a supported delimiter from a bounded header sample; keep the fast C reader."""
-    with open(path, 'rb') as stream:
+    with open(path, "rb") as stream:
         sample_bytes = stream.read(65536)
-    encoding = 'utf-16' if sample_bytes.startswith((b'\xff\xfe', b'\xfe\xff')) else 'utf-8-sig'
-    sample = sample_bytes.decode(encoding, errors='replace')
+    encoding = (
+        "utf-16" if sample_bytes.startswith((b"\xff\xfe", b"\xfe\xff")) else "utf-8-sig"
+    )
+    sample = sample_bytes.decode(encoding, errors="replace")
     expected = set(required_columns or [])
     candidates = []
-    for delimiter in [',', '\t', '|', ';']:
+    for delimiter in [",", "\t", "|", ";"]:
         try:
             rows = csv.reader(io.StringIO(sample), delimiter=delimiter)
-            columns = next((row for row in rows if row and any(cell.strip() for cell in row)), [])
-            candidates.append((len(expected.intersection(columns)), len(columns), delimiter, columns))
+            columns = next(
+                (row for row in rows if row and any(cell.strip() for cell in row)), []
+            )
+            candidates.append(
+                (len(expected.intersection(columns)), len(columns), delimiter, columns)
+            )
         except csv.Error:
             continue
     if not candidates:
-        raise ValueError(f'Cannot read the header of {path}.')
+        raise ValueError(f"Cannot read the header of {path}.")
     _, _, delimiter, columns = max(candidates, key=lambda item: (item[0], item[1]))
     if not columns:
-        raise ValueError(f'The source file is empty: {path}')
+        raise ValueError(f"The source file is empty: {path}")
     # Let pandas read the original header. Never trim, rename, or inject names.
-    return {'sep': delimiter, 'encoding': encoding, 'engine': 'c'}
+    return {"sep": delimiter, "encoding": encoding, "engine": "c"}
 
 
+# Read the requested columns while preserving their original names.
+@stage("Read data file")
 def read_source(path, usecols=None):
     """Memory-efficient reader with header-based comma/tab/pipe/semicolon detection."""
     columns = list(usecols) if usecols is not None else None
-    dtype_map = {column: 'string' for column in ['MSISDN', 'SERVED_MSISDN', 'Subscriber_MSISDN'] if columns and column in columns}
-    kwargs = {'usecols': columns, 'low_memory': True, **source_read_options(path, columns)}
+    dtype_map = {
+        column: "string"
+        for column in ["MSISDN", "SERVED_MSISDN", "Subscriber_MSISDN"]
+        if columns and column in columns
+    }
+    kwargs = {
+        "usecols": columns,
+        "low_memory": True,
+        **source_read_options(path, columns),
+    }
     if dtype_map:
-        kwargs['dtype'] = dtype_map
-    return pd.read_csv(path, **kwargs)
+        kwargs["dtype"] = dtype_map
+    return stage_call("Read data file", pd.read_csv, path, **kwargs)
 
 
+# Return error details so the interface can show where processing failed.
 def build_error_response(exc, status=500):
     """Turn any exception into a JSON body the frontend can pinpoint exactly."""
     tb = traceback.extract_tb(exc.__traceback__)
     last_frame = tb[-1] if tb else None  # the innermost frame = where it actually broke
-    return jsonify({
-        "error": str(exc),
-        "error_type": type(exc).__name__,
-        "file": last_frame.filename.split("/")[-1] if last_frame else None,
-        "line": last_frame.lineno if last_frame else None,
-        "function": last_frame.name if last_frame else None,
-        "traceback": traceback.format_exc(),
-    }), status
+    return (
+        jsonify(
+            {
+                "error": str(exc),
+                "error_type": type(exc).__name__,
+                "file": last_frame.filename.split("/")[-1] if last_frame else None,
+                "line": last_frame.lineno if last_frame else None,
+                "function": last_frame.name if last_frame else None,
+                "traceback": traceback.format_exc(),
+            }
+        ),
+        status,
+    )
 
+
+# Compute statistics and score-bin counts from all results, not the preview.
+@stage("Calculate score distributions")
 def compute_score_stats(result_df, score_col=None, bins=10):
     """Summary stats + histogram for the score column of a result CSV.
     Auto-detects the score column (first one containing 'SCORE', 'INDEX', or
     'CI') if score_col isn't given. Returns None if no numeric column found."""
     if score_col is None:
-        candidates = [c for c in result_df.columns
-                      if any(k in c.upper() for k in ("SCORE", "INDEX", "CI"))]
-        numeric_candidates = [c for c in candidates if pd.api.types.is_numeric_dtype(result_df[c])]
+        candidates = [
+            c
+            for c in result_df.columns
+            if any(k in c.upper() for k in ("SCORE", "INDEX", "CI"))
+        ]
+        numeric_candidates = [
+            c for c in candidates if pd.api.types.is_numeric_dtype(result_df[c])
+        ]
         if numeric_candidates:
             score_col = numeric_candidates[0]
         else:
@@ -150,16 +188,33 @@ STANDARD_COLUMNS = {
     "VOICE_USAGE": ["Subscriber_MSISDN", "Call_Date", "Call_Duration"],
     "Transaction_Frequency": ["MSISDN", "PaidDateUtc", "OrderStatusId"],
 }
-CI_DOMAIN_STANDARD = {"data": "DATA_USAGE", "voice": "VOICE_USAGE", "spend": "ARPU_CLV_GROWTH", "txn": "Transaction_Frequency"}
-TS_DOMAIN_STANDARD = {"order": "Transaction_Frequency", "data": "DATA_USAGE", "voice": "VOICE_USAGE"}
+CI_DOMAIN_STANDARD = {
+    "data": "DATA_USAGE",
+    "voice": "VOICE_USAGE",
+    "spend": "ARPU_CLV_GROWTH",
+    "txn": "Transaction_Frequency",
+}
+TS_DOMAIN_STANDARD = {
+    "order": "Transaction_Frequency",
+    "data": "DATA_USAGE",
+    "voice": "VOICE_USAGE",
+}
 
+
+# Use shared file-path and column settings for both the form and API.
 def dashboard_defaults():
-    standards = {key: {"path": source_path(STANDARD_SOURCE_KEY[key]), "columns": columns} for key, columns in STANDARD_COLUMNS.items()}
-    return {"standards": standards,
-            "ci": {domain: standards[key] for domain, key in CI_DOMAIN_STANDARD.items()},
-            "ts": {domain: standards[key] for domain, key in TS_DOMAIN_STANDARD.items()}}
+    standards = {
+        key: {"path": source_path(STANDARD_SOURCE_KEY[key]), "columns": columns}
+        for key, columns in STANDARD_COLUMNS.items()
+    }
+    return {
+        "standards": standards,
+        "ci": {domain: standards[key] for domain, key in CI_DOMAIN_STANDARD.items()},
+        "ts": {domain: standards[key] for domain, key in TS_DOMAIN_STANDARD.items()},
+    }
 
 
+# Convert invalid numbers such as NaN to null for valid JSON.
 def json_safe(value):
     """Replace non-finite numeric values with JSON null, including nested previews."""
     if value is pd.NA or value is pd.NaT:
@@ -175,3 +230,16 @@ def json_safe(value):
     if isinstance(value, np.integer):
         return int(value)
     return value
+
+
+# Select numeric score columns for result charts.
+def score_distributions(frame):
+    columns = [
+        column
+        for column in frame.columns
+        if (
+            "score" in column.lower() or column in ["risk_index", "decline_probability"]
+        )
+        and pd.api.types.is_numeric_dtype(frame[column])
+    ]
+    return {column: compute_score_stats(frame, column) for column in columns}
