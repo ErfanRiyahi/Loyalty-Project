@@ -1,9 +1,17 @@
   <div class="tab-panel" id="tabCluster">
     <div class="panel">
-      <label>نشانی سرویس پردازش</label>
-      <input type="text" id="clusterApiUrl" value="/cluster">
-      
-
+      <label for="clusterInputMode">منبع فایل‌های امتیازدهی</label>
+      <select id="clusterInputMode"><option value="latest">آخرین نتایج امتیازدهی</option><option value="custom">انتخاب فایل‌های دیگر</option></select>
+      <p>ورودی این بخش فایل‌های امتیازدهی‌شده است. هر فایل باید شناسهٔ یکتای MSISDN و ستون‌های امتیاز مربوط را داشته باشد.</p>
+      <div id="clusterSourceInventory" role="status"></div>
+      <div id="clusterCustomInputs" hidden>
+      {% for key, title in [('ARPU_CLV_GROWTH', 'درآمد، ارزش طول عمر و رشد'), ('DATA_USAGE', 'مصرف اینترنت'), ('VOICE_USAGE', 'مکالمه'), ('Transaction_Frequency', 'تعداد تراکنش'), ('TEMPORAL_STABILITY', 'پایداری زمانی'), ('CONSISTENCY_INDEX', 'شاخص سازگاری')] %}
+      <div class="domain-block"><h3>{{ title }}</h3>
+      <label for="cluster-path-{{ key }}">مسیر فایل قابل دسترسی برای سرور</label><input id="cluster-path-{{ key }}" class="cluster-source-path" data-source="{{ key }}">
+      <label for="cluster-file-{{ key }}">یا بارگذاری فایل CSV (اولویت با فایل بارگذاری‌شده است)</label><input id="cluster-file-{{ key }}" type="file" accept=".csv" data-source="{{ key }}" class="cluster-source-file">
+      </div>
+      {% endfor %}
+      </div>
       <label style="display:flex;gap:8px;align-items:center">
         <input id="clusterStability" type="checkbox" checked style="width:auto">بررسی پایداری با پنج بار برازش روی زیرنمونه‌ها</label>
       

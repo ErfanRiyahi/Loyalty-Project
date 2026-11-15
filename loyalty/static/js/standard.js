@@ -64,15 +64,10 @@ function renderResults(data) {
 
 // Validate the form, then call the shared request function.
 async function runAnalysis() {
-  const apiUrl = document.getElementById("apiUrl").value.trim();
   const datasetAddress = document.getElementById("datasetAddress").value.trim();
   const columns = getColumns();
   const standard = document.getElementById("standard").value;
 
-  if (!apiUrl) {
-    setError("نشانی سرویس پردازش را وارد کنید.");
-    return;
-  }
   if (columns.length === 0) {
     setError("نام ستون‌های موردنیاز را وارد کنید.");
     return;
@@ -85,7 +80,7 @@ async function runAnalysis() {
     standard: standard,
   };
   await executeScoringRequest(
-    apiUrl,
+    "/analyze",
     body,
     runBtn,
     statusArea,

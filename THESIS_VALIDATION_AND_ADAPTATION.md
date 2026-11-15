@@ -1,3 +1,5 @@
+> Current implementation update: Monthly Learning now uses three-month inactivity targets and a fixed histogram gradient-boosting model; the customer page shows prioritized retention lists rather than method choices. See README.md for label maturity, evaluation splits and migration requirements. The score-screening methods documented below remain legacy API functionality, not the current predictive target.
+
 # Clustering validation, experimental risk screening, and adaptive learning
 
 ## Install this update
