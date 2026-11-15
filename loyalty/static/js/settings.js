@@ -78,7 +78,6 @@
       entry.apply(value);
     }
     applyStandardDefaults();
-    if (typeof updateClusterInputMode === "function") updateClusterInputMode();
   }
   apply(readSaved());
   document.getElementById("defaultsForm").addEventListener("submit", event => {

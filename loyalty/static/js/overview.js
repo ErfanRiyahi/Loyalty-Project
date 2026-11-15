@@ -169,7 +169,7 @@ async function runDatasetOverview() {
   setLoading(dsStatusArea, dsResultsArea);
   try {
     const data = await postJson(
-      "/dataset_overview",
+      document.getElementById("dsApiUrl").value.trim(),
       {
         dataset_address: path,
         date_column: dateColumn || null,

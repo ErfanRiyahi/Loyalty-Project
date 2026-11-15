@@ -14,6 +14,12 @@ function renderCIResults(data) {
 }
 
 async function runConsistencyIndex() {
+  const apiUrl = document.getElementById("ciApiUrl").value.trim();
+  if (!apiUrl) {
+    setError("نشانی سرویس پردازش را وارد کنید.", ciStatusArea, ciResultsArea);
+    return;
+  }
+
   const { domains, missingDomains } = getCIDomainsPayload();
   if (missingDomains.length > 0) {
     setError(
@@ -25,7 +31,7 @@ async function runConsistencyIndex() {
   }
 
   await executeScoringRequest(
-    "/consistency_index",
+    apiUrl,
     { domains: domains },
     runCIBtn,
     ciStatusArea,
