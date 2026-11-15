@@ -24,7 +24,7 @@ Open the address printed by Flask. Configure data file paths and exact column na
 
 ## Input defaults and monthly columns
 
-The **Input Defaults** tab edits initial file paths, column names, service URLs and analysis options for all pages. Save and apply updates the forms immediately and stores these defaults in this browser for future visits. Reset restores the original application defaults. Saved settings are specific to the browser and site address; they do not change server configuration or other users' defaults. The observation month and completeness confirmation are always chosen separately.
+The **Input Defaults** tab edits initial file paths, column names and analysis options for all pages. Save and apply updates the forms immediately and stores these defaults in this browser for future visits. Reset restores the original application defaults. Saved settings are specific to the browser and site address; they do not change server configuration or other users' defaults. The observation month and completeness confirmation are always chosen separately.
 
 **Monthly Learning** accepts exact column names for customer ID, date and value in each source, plus order status (successful value `30`) and an optional order event ID. Clear the event ID field if none is available. The API accepts a `columns` object keyed by `order`, `data_cdr` and `voice_cdr`, with ordered arrays of five, three and three names respectively; an empty final order name disables event-ID deduplication. Omitting `columns` retains the original schema. Column names are used exactly as entered.
 
