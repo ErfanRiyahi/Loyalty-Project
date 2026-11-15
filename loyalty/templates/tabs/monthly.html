@@ -3,9 +3,23 @@
 
 <label for="monthlyMonth">آخرین ماه کامل مشاهده (سال و ماه میلادی)</label>
 <input id="monthlyMonth" type="month">
-<label>فایل خریدها</label><input id="monthlyOrder" value="{{ defaults.standards.ARPU_CLV_GROWTH.path }}">
-<label>فایل مصرف اینترنت</label><input id="monthlyData" value="{{ defaults.standards.DATA_USAGE.path }}">
-<label>فایل مکالمه (جداکننده |)</label><input id="monthlyVoice" value="{{ defaults.standards.VOICE_USAGE.path }}">
+{% for source, field, standard, title in [('order', 'monthlyOrder', 'ARPU_CLV_GROWTH', 'خریدها'), ('data_cdr', 'monthlyData', 'DATA_USAGE', 'مصرف اینترنت'), ('voice_cdr', 'monthlyVoice', 'VOICE_USAGE', 'مکالمه')] %}
+<div class="domain-block">
+<h3>فایل {{ title }}</h3>
+<label for="{{ field }}">مسیر فایل داده</label>
+<input id="{{ field }}" value="{{ defaults.standards[standard].path }}">
+{% for value in defaults.standards[standard].columns %}
+<label for="monthly-{{ source }}-{{ loop.index0 }}">{{ ['شناسه مشتری', 'تاریخ', 'مقدار'][loop.index0] }}</label>
+<input id="monthly-{{ source }}-{{ loop.index0 }}" class="monthly-col" data-source="{{ source }}" value="{{ value }}" required>
+{% endfor %}
+{% if source == 'order' %}
+<label for="monthly-order-status">ستون وضعیت سفارش (وضعیت موفق: 30)</label>
+<input id="monthly-order-status" class="monthly-col" data-source="order" value="OrderStatusId" required>
+<label for="monthly-order-event">ستون شناسه رویداد (اختیاری؛ برای حذف تکرارها)</label>
+<input id="monthly-order-event" class="monthly-col" data-source="order" value="Id">
+{% endif %}
+</div>
+{% endfor %}
 <label style="display:flex;align-items:center;gap:8px"><input id="monthlyComplete" type="checkbox" style="width:auto">تأیید می‌کنم هر سه منبع تا پایان ماه انتخاب‌شده کامل هستند</label>
 
 <button id="runMonthlyBtn" class="run-btn">اجرای به‌روزرسانی ماهانه</button>

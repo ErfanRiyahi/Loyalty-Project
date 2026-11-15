@@ -14,6 +14,9 @@
       const data = await postJson("/monthly/update", {
         as_of_month: document.getElementById("monthlyMonth").value,
         confirm_complete: document.getElementById("monthlyComplete").checked,
+        columns: Object.fromEntries(["order", "data_cdr", "voice_cdr"].map(source => [
+          source, Array.from(document.querySelectorAll(`.monthly-col[data-source="${source}"]`), input => input.value),
+        ])),
         sources: {
           order: document.getElementById("monthlyOrder").value.trim(),
           data_cdr: document.getElementById("monthlyData").value.trim(),

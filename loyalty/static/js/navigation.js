@@ -1,4 +1,4 @@
-const tabs = ["Standard", "CI", "TS", "DS", "Cluster", "Churn", "Monthly"];
+const tabs = ["Standard", "CI", "TS", "DS", "Cluster", "Churn", "Monthly", "Settings"];
 for (const name of tabs) {
   document.getElementById("tabBtn" + name).addEventListener("click", () => {
     for (const other of tabs) {
