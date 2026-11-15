@@ -14,6 +14,12 @@ function renderTSResults(data) {
 }
 
 async function runTemporalStability() {
+  const apiUrl = document.getElementById("tsApiUrl").value.trim();
+  if (!apiUrl) {
+    setError("نشانی سرویس پردازش را وارد کنید.", tsStatusArea, tsResultsArea);
+    return;
+  }
+
   const { domains, missingDomains } = getTSDomainsPayload();
   if (missingDomains.length > 0) {
     setError(
@@ -25,7 +31,7 @@ async function runTemporalStability() {
   }
 
   await executeScoringRequest(
-    "/temporal_stability",
+    apiUrl,
     { domains: domains },
     runTSBtn,
     tsStatusArea,

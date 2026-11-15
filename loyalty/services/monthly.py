@@ -17,6 +17,9 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import linear_sum_assignment
 from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import make_pipeline
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     average_precision_score,
     roc_auc_score,
@@ -302,6 +305,20 @@ def snapshot(panel, first_seen, month):
     return frame.reset_index()
 
 
+# Build the training label from the following month, without including it in features.
+def targets(frame, panel, next_month):
+    outcome = panel.loc[panel.month == str(next_month)].set_index("MSISDN")
+    drops = []
+    for domain in ACTIVITY:
+        baseline = frame[domain + "_mean3"]
+        actual = frame.MSISDN.map(outcome[domain]).fillna(0)
+        drops.append((baseline > 0) & (actual <= 0.5 * baseline))
+    active = sum(frame[d + "_mean3"].gt(0).astype(int) for d in ACTIVITY)
+    eligible = (active >= 2) & (frame.history_months >= 3)
+    y = (sum(drop.astype(int) for drop in drops) >= 2).astype(int).where(eligible)
+    return y
+
+
 # Calculate scoring-reference parameters from historical data.
 @stage("Calculate scoring references")
 def fit_references(frame):
@@ -354,7 +371,7 @@ def metrics(y, probabilities):
         "rows": len(y),
         "positive_rate": float(np.mean(y)),
         "confusion_matrix": confusion_matrix(y, predicted, labels=[0, 1]).tolist(),
-        "matrix_labels": ["No churn within horizon", "Three consecutive inactive months reached"],
+        "matrix_labels": ["No qualifying decline", "Qualifying next-month decline"],
         "precision": float(precision_score(y, predicted, zero_division=0)),
         "recall": float(recall_score(y, predicted, zero_division=0)),
         "average_precision": (
@@ -365,6 +382,137 @@ def metrics(y, probabilities):
         ),
         "brier": float(brier_score_loss(y, probabilities)),
     }
+
+
+# Split training, validation and test data by month; preserve chronological order.
+@stage("Train and evaluate next-month prediction")
+def train_predict(snapshots, panel, latest, run_dir):
+    labeled = []
+    for frame in snapshots[:-1]:
+        frame = frame.copy()
+        frame["target"] = targets(
+            frame, panel, pd.Period(frame.snapshot_month.iloc[0], freq="M") + 1
+        )
+        labeled.append(frame.loc[frame.target.notna()])
+    history = pd.concat(labeled, ignore_index=True) if labeled else pd.DataFrame()
+    current = snapshots[-1].copy()
+    report = {
+        "target": "At least two active order/data/voice domains decline >=50% next month versus preceding three-month mean",
+        "horizon_months": 1,
+        "threshold": 0.5,
+        "status": "insufficient_training_data",
+    }
+    current["decline_probability"] = np.nan
+    current["prediction_status"] = "Insufficient training data"
+    current["predicted_next_month"] = str(latest + 1)
+    if history.empty:
+        return current, report
+    periods = sorted(history.snapshot_month.unique())
+    if len(periods) < 4:
+        return current, report
+    train = history.loc[history.snapshot_month < periods[-2]]
+    validation = history.loc[history.snapshot_month == periods[-2]]
+    test = history.loc[history.snapshot_month == periods[-1]]
+    if (
+        len(train) < 30
+        or train.target.nunique() != 2
+        or train.target.value_counts().min() < 5
+        or test.empty
+    ):
+        report["reason"] = (
+            "Need at least four labeled months, 30 training rows, and at least five examples of each class in training."
+        )
+        return current, report
+    candidate = make_pipeline(
+        StandardScaler(), LogisticRegression(max_iter=1000, random_state=42)
+    )
+    stage_call("Fit model", candidate.fit, train[FEATURES], train.target.astype(int))
+    candidate_scores = stage_call(
+        "Predict activity decline probability", candidate.predict_proba, test[FEATURES]
+    )[:, 1]
+    candidate_test = metrics(test.target.astype(int).to_numpy(), candidate_scores)
+    active_path = ROOT / "churn_model.pkl"
+    champion = None
+    champion_metrics = None
+    if active_path.exists():
+        saved = joblib.load(active_path)
+        # Never evaluate a model trained on this test period (e.g. an older-month replay).
+        if saved["train_through"] < periods[-1]:
+            champion = saved["pipeline"]
+            champion_metrics = metrics(
+                test.target.astype(int).to_numpy(),
+                stage_call(
+                    "Predict activity decline probability",
+                    champion.predict_proba,
+                    test[FEATURES],
+                )[:, 1],
+            )
+    promote = champion is None or (
+        candidate_test["average_precision"] is not None
+        and champion_metrics["average_precision"] is not None
+        and candidate_test["average_precision"]
+        >= champion_metrics["average_precision"] - 0.02
+        and candidate_test["brier"] <= champion_metrics["brier"] + 0.02
+    )
+    deployed = candidate if promote else champion
+    stage_call(
+        "Save model",
+        joblib.dump,
+        {"pipeline": candidate, "train_through": periods[-3], "features": FEATURES},
+        run_dir / "churn_candidate.pkl",
+    )
+    if promote:
+        stage_call(
+            "Save model",
+            joblib.dump,
+            {"pipeline": candidate, "train_through": periods[-3], "features": FEATURES},
+            active_path,
+        )
+    eligible = (current.history_months >= 3) & (
+        sum(current[d + "_mean3"].gt(0).astype(int) for d in ACTIVITY) >= 2
+    )
+    current.loc[eligible, "decline_probability"] = (
+        stage_call(
+            "Predict activity decline probability",
+            deployed.predict_proba,
+            current.loc[eligible, FEATURES],
+        )[:, 1]
+        if eligible.any()
+        else []
+    )
+    current["prediction_status"] = np.where(
+        ~eligible,
+        "Insufficient prior activity",
+        np.where(
+            current.decline_probability >= 0.5,
+            "Likely decline",
+            "Lower estimated decline risk",
+        ),
+    )
+    report.update(
+        status="trained",
+        algorithm="StandardScaler + L2 logistic regression",
+        training_months=sorted(train.snapshot_month.unique()),
+        validation_month=periods[-2],
+        test_month=periods[-1],
+        candidate_test=candidate_test,
+        champion_test=champion_metrics,
+        promoted=promote,
+        validation=(
+            metrics(
+                validation.target.astype(int).to_numpy(),
+                stage_call(
+                    "Predict activity decline probability",
+                    candidate.predict_proba,
+                    validation[FEATURES],
+                )[:, 1],
+            )
+            if len(validation)
+            else None
+        ),
+        note="Fixed threshold 0.5; chronological validation/test. These are activity-decline labels, not cancellation outcomes. Same-customer recurrence across months is intentional.",
+    )
+    return current, report
 
 
 # Run ingestion, feature building, clustering, prediction and output saving in order.
@@ -475,9 +623,7 @@ def run_monthly(payload):
     run_id = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
     run_dir = ROOT / "runs" / run_id
     run_dir.mkdir(parents=True)
-    from .retention import predict, VERSION as retention_version
-
-    prediction, training = predict(snapshots, panel, as_of, run_dir)
+    prediction, training = train_predict(snapshots, panel, as_of, run_dir)
     output = scored.merge(
         prediction[
             [
@@ -485,8 +631,6 @@ def run_monthly(payload):
                 "decline_probability",
                 "prediction_status",
                 "predicted_next_month",
-                "churn_probability", "retention_status", "risk_level", "risk_reasons",
-                "model_factors", "last_active_month", "consecutive_inactive_months", "forecast_through",
             ]
         ],
         on="MSISDN",
@@ -506,7 +650,6 @@ def run_monthly(payload):
         {raw: f"Cluster {stable_id}" for raw, stable_id in mapping.items()},
         payload.get("run_stability", True),
     )
-    stage_call("Save output file", prediction.to_csv, run_dir / "retention.csv", index=False)
     for file in [run_dir / "customers.csv", ROOT / "latest_customers.csv"]:
         stage_call("Save output file", output.to_csv, file, index=False)
     stage_call(
@@ -531,9 +674,7 @@ def run_monthly(payload):
     report = {
         "run_id": run_id,
         "as_of_month": str(as_of),
-        "predicting_month": str(as_of + 3),
-        "retention_version": retention_version,
-        "retention_counts": prediction.retention_status.value_counts().to_dict(),
+        "predicting_month": str(as_of + 1),
         "quarter": quarter,
         "customers": len(output),
         "cluster_counts": output.cluster_id.value_counts().sort_index().to_dict(),

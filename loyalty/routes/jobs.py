@@ -83,12 +83,12 @@ def start():
         payload = request.get_json(silent=True)
         if not isinstance(payload, dict):
             return jsonify(error="Operation input must be a JSON object."), 400
-        path, body, uploads = payload.get("path"), payload.get("body", {}), None
+        path, body, upload = payload.get("path"), payload.get("body", {}), None
     else:
         path = request.form.get("path")
-        body = request.form.to_dict()
-        body.pop("path", None)
-        uploads = {name: (file.read(), file.filename) for name, file in request.files.items()}
+        body = {"method": request.form.get("method", "baseline")}
+        file = request.files.get("file")
+        upload = (file.read(), file.filename) if file else None
     if path not in PATHS or not isinstance(body, dict):
         return jsonify(error="Invalid operation path or input."), 400
     key = request.headers.get("Idempotency-Key", "")[:128]
@@ -136,11 +136,11 @@ def start():
             token = current_job.set(job)
             try:
                 kwargs = {"json": body}
-                if uploads is not None:
+                if upload is not None:
                     from io import BytesIO
 
                     kwargs = {
-                        "data": {**body, **{name: (BytesIO(content), filename) for name, (content, filename) in uploads.items()}},
+                        "data": {**body, "file": (BytesIO(upload[0]), upload[1])},
                         "content_type": "multipart/form-data",
                     }
                 with application.test_request_context(path, method="POST", **kwargs):
