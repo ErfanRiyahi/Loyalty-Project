@@ -79,7 +79,7 @@ def save_model_registry(registry):
 
 # Merge six score outputs and run K-Means with three clusters on unscaled features.
 @stage("Merge scores and cluster customers")
-def run_clustering(run_stability=True, score_files=None, source_labels=None):
+def run_clustering(run_stability=True, score_files=None, source_labels=None, publish=True, model_bundle=None, holdout=False):
     """Same logic as cluster_v3.md's merge -> tier split -> K-Means, packaged
     to run inside the request instead of a notebook. Raises if a required
     *_SCORE.csv is missing — run the corresponding tab (or /cluster with
@@ -157,6 +157,8 @@ def run_clustering(run_stability=True, score_files=None, source_labels=None):
 
     arpu_floor = df.loc[df["HAS_ACG"] == 1, "ARPU_SCORE"].min()
     ci_floor = df.loc[df["HAS_CI"] == 1, "CI_Score"].min()
+    if model_bundle is not None:
+        arpu_floor, ci_floor = model_bundle["arpu_floor"], model_bundle["ci_floor"]
     df["IS_ARPU_ABOVE_FLOOR"] = (
         (df["HAS_ACG"] == 1) & (df["ARPU_SCORE"] > arpu_floor)
     ).astype(int)
@@ -172,7 +174,7 @@ def run_clustering(run_stability=True, score_files=None, source_labels=None):
     binary_features = CLUSTER_BINARY_FEATURES
 
     cfg = load_cluster_config()
-    weights = cfg["feature_weights"]
+    weights = model_bundle["weights"] if model_bundle is not None else cfg["feature_weights"]
     if any(
         isinstance(v, bool)
         or not isinstance(v, (int, float))
@@ -194,10 +196,21 @@ def run_clustering(run_stability=True, score_files=None, source_labels=None):
 
     if np.unique(X_final, axis=0).shape[0] < 3:
         raise ValueError("k=3 requires at least three distinct feature vectors.")
-    km = KMeans(n_clusters=3, n_init=10, random_state=42)
-    df_multi["cluster"] = stage_call(
-        "Fit model and assign clusters", km.fit_predict, X_final
-    )
+    evaluation_ids = []
+    train_indices = np.arange(len(df_multi))
+    if holdout:
+        if len(df_multi) < 50:
+            raise ValueError("یادگیری تطبیقی به حداقل ۵۰ مشتری با چند حوزهٔ فعال نیاز دارد.")
+        shuffled = np.random.default_rng(42).permutation(len(df_multi))
+        evaluation_indices = np.sort(shuffled[:max(10, len(shuffled) // 5)])
+        train_indices = np.sort(shuffled[max(10, len(shuffled) // 5):])
+        evaluation_ids = df_multi.iloc[evaluation_indices].MSISDN.astype(str).tolist()
+    if model_bundle is None:
+        km = KMeans(n_clusters=3, n_init=10, random_state=42)
+        stage_call("Fit model and assign clusters", km.fit, X_final[train_indices])
+    else:
+        km = model_bundle["kmeans"]
+    df_multi["cluster"] = km.predict(X_final)
 
     engagement = (
         df_multi.groupby("cluster")[CLUSTER_SCORE_COLS]
@@ -206,6 +219,8 @@ def run_clustering(run_stability=True, score_files=None, source_labels=None):
         .sort_values()
     )
     cluster_labels_map = dict(zip(engagement.index, CLUSTER_LABEL_ORDER))
+    if model_bundle is not None:
+        cluster_labels_map = model_bundle["cluster_labels_map"]
     df_multi["cluster_label"] = df_multi["cluster"].map(cluster_labels_map)
 
     profile = df_multi.groupby("cluster")[continuous_features + binary_features].mean()
@@ -227,12 +242,8 @@ def run_clustering(run_stability=True, score_files=None, source_labels=None):
     ]  # single-domain "Limited" tiering can be layered on later
     df.loc[~multi, "segment"] = "Limited (single-domain)"
 
-    stage_call(
-        "Save output file",
-        df.to_csv,
-        OUTPUT_ROOT / "customer_segmentation_final.csv",
-        index=False,
-    )
+    if publish:
+        stage_call("Save output file", df.to_csv, OUTPUT_ROOT / "customer_segmentation_final.csv", index=False)
 
     # ---- versioned snapshot, for rollback / comparing runs over time ----
     run_id = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S_%f")
@@ -250,6 +261,7 @@ def run_clustering(run_stability=True, score_files=None, source_labels=None):
             "weights": weights,
             "continuous_features": continuous_features,
             "binary_features": binary_features,
+            "evaluation_ids": evaluation_ids,
         },
         os.path.join(model_dir, "model.pkl"),
     )
@@ -258,10 +270,7 @@ def run_clustering(run_stability=True, score_files=None, source_labels=None):
     validation["weights_used"] = weights
     validation["continuous_features"] = continuous_features
     validation["binary_features"] = binary_features
-    for target in [
-        OUTPUT_ROOT / "cluster_validation.json",
-        Path(model_dir) / "validation.json",
-    ]:
+    for target in ([OUTPUT_ROOT / "cluster_validation.json"] if publish else []) + [Path(model_dir) / "validation.json"]:
         with open(target, "w") as stream:
             stage_call(
                 "Save report and configuration",
@@ -291,7 +300,8 @@ def run_clustering(run_stability=True, score_files=None, source_labels=None):
             "validation_file": str(Path(model_dir) / "validation.json"),
         }
     )
-    save_model_registry(registry)
+    if publish:
+        save_model_registry(registry)
 
     # simple drift/quality proxy vs the last run — a real check, not just a log entry.
     # this doesn't block anything (retraining is manual), it just tells you when a
@@ -322,6 +332,7 @@ def run_clustering(run_stability=True, score_files=None, source_labels=None):
 
     return {
         "run_id": run_id,
+        "active_model_run_id": model_bundle.get("active_run_id") if model_bundle else None,
         "previous_run_id": previous["run_id"] if previous else None,
         "quality_flag": quality_flag,
         "n_customers": int(len(df)),
@@ -336,7 +347,8 @@ def run_clustering(run_stability=True, score_files=None, source_labels=None):
             for c, row in profile.iterrows()
         },
         "preprocessing": "none",
-        "output_file": str(OUTPUT_ROOT / "customer_segmentation_final.csv"),
+        "output_file": str(OUTPUT_ROOT / "customer_segmentation_final.csv" if publish else Path(model_dir) / "segmentation.csv"),
+        "model_file": str(Path(model_dir) / "model.pkl"),
         "validation": validation,
         "validation_download_url": "/cluster/validation/download",
     }

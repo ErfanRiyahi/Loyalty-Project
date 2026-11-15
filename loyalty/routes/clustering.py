@@ -125,6 +125,8 @@ def cluster_route():
         run_stability = payload.get("run_stability", True)
         if not isinstance(run_stability, bool):
             raise ValueError("run_stability must be true or false.")
+        from ..services.adaptive import active_bundle
+        current_model = active_bundle()
         if custom:
             paths = payload.get("sources", {})
             if not isinstance(paths, dict) or set(paths) - set(SCORE_FILES):
@@ -143,9 +145,9 @@ def cluster_route():
                         if not isinstance(path, str) or not path.strip():
                             raise ValueError(f"Select a scored CSV for {key}.")
                         selected[key] = path.strip()
-                result = run_clustering(run_stability=run_stability, score_files=selected, source_labels=labels)
+                result = run_clustering(run_stability=run_stability, score_files=selected, source_labels=labels, model_bundle=current_model)
         else:
-            result = run_clustering(run_stability=run_stability)
+            result = run_clustering(run_stability=run_stability, model_bundle=current_model)
         return jsonify(json_safe(result))
     except (ValueError, FileNotFoundError) as e:
         return jsonify(error=str(e)), 400

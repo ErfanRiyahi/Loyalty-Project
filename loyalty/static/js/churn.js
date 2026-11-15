@@ -63,6 +63,24 @@
     document.getElementById("retentionPrevious").addEventListener("click", () => { page--; load(); });
     document.getElementById("retentionNext").addEventListener("click", () => { page++; load(); });
   }
+  const updateButton = document.getElementById("updateChurnBtn");
+  const now = new Date(); now.setDate(1); now.setMonth(now.getMonth() - 1);
+  document.getElementById("churnMonth").value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+  updateButton.addEventListener("click", async () => {
+    updateButton.disabled = true;
+    button.disabled = true;
+    setLoading(status, results);
+    try {
+      await postJson("/churn/update", {
+        as_of_month: document.getElementById("churnMonth").value,
+        confirm_complete: document.getElementById("churnComplete").checked,
+        sources: {order: document.getElementById("churnOrder").value.trim(), data_cdr: document.getElementById("churnData").value.trim(), voice_cdr: document.getElementById("churnVoice").value.trim()},
+        columns: Object.fromEntries(["order","data_cdr","voice_cdr"].map(source => [source, Array.from(document.querySelectorAll(`.churn-col[data-source="${source}"]`), field => field.value)])),
+      });
+      page = 1; await load();
+    } catch (error) { setError({message:error.message}, status, results); }
+    finally { updateButton.disabled = false; button.disabled = false; }
+  });
   button.addEventListener("click", () => { page = 1; load(); });
   // Legacy job recovery refreshes the current actionable list.
   window.renderChurnResults = () => load();

@@ -5,7 +5,7 @@ from unittest.mock import patch
 import numpy as np
 import pandas as pd
 from loyalty import create_app
-from loyalty.services import monthly, retention
+from loyalty.services import monthly, retention, forecasting
 
 
 def test_three_month_target_and_incomplete_followup():
@@ -78,7 +78,7 @@ def test_customer_api_filters_pagination_and_export_all_rows(tmp_path):
     pd.DataFrame(rows).to_csv(directory/'retention.csv',index=False)
     report={'run_id':run,'as_of_month':'2025-12','predicting_month':'2026-03','retention_version':retention.VERSION,'learning':{'status':'trained'}}
     (root/'latest_report.json').write_text(json.dumps(report))
-    with patch.object(monthly,'ROOT',root):
+    with patch.object(forecasting,'ROOT',root):
         client=create_app().test_client()
         response=client.get('/churn/customers?page=5')
         assert response.status_code==200
@@ -108,9 +108,9 @@ def test_monthly_ingestion_to_retention_list(tmp_path):
             if source=='order':values.append(30)
             rows.append(values)
         path=tmp_path/(source+'.csv');pd.DataFrame(rows,columns=columns).to_csv(path,index=False);paths[source]=str(path)
-    with patch.object(monthly,'ROOT',tmp_path/'monthly'):
+    with patch.object(forecasting,'ROOT',tmp_path/'monthly'):
         client=create_app().test_client()
-        response=client.post('/monthly/update',json={'as_of_month':str(months[-1]),'confirm_complete':True,'run_stability':False,'sources':paths})
+        response=client.post('/churn/update',json={'as_of_month':str(months[-1]),'confirm_complete':True,'run_stability':False,'sources':paths})
         assert response.status_code==200,response.json
         report=response.json
         assert report['retention_version']==retention.VERSION
@@ -118,3 +118,23 @@ def test_monthly_ingestion_to_retention_list(tmp_path):
         assert report['retention_counts']['churned']>0
         assert client.get('/churn/customers?status=churned').json['total']>0
         assert client.get('/churn/customers/download?status=all').status_code==200
+        active_bytes=(forecasting.ROOT/'active_model.pkl').read_bytes()
+        with patch.object(retention.HistGradientBoostingClassifier,'fit',side_effect=AssertionError('Do not retrain an active churn model')):
+            repeat=client.post('/churn/update',json={'as_of_month':str(months[-1]),'confirm_complete':True,'sources':paths})
+        assert repeat.status_code==200,repeat.json
+        assert repeat.json['learning']['model_source']=='existing'
+        assert (forecasting.ROOT/'active_model.pkl').read_bytes()==active_bytes
+
+
+def test_existing_churn_model_is_reused_without_any_retraining(tmp_path):
+    months,panel,snapshots=make_history()
+    first=tmp_path/'first';second=tmp_path/'second';first.mkdir();second.mkdir()
+    retention.predict(snapshots,panel,months[-1],first)
+    import joblib
+    bundle=joblib.load(first/'retention_model.pkl')
+    with patch.object(retention.HistGradientBoostingClassifier,'fit',side_effect=AssertionError('Prediction must reuse the current model')):
+        output,report=retention.predict(snapshots,panel,months[-1],second,model_bundle=bundle)
+    assert report['model_source']=='existing'
+    assert report['status']=='trained'
+    assert output.churn_probability.notna().any()
+    assert joblib.load(second/'retention_model.pkl')['trained_through']==bundle['trained_through']

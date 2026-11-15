@@ -6,6 +6,9 @@ const operationPanels = {
   "/dataset_overview": ["dsStatusArea", "dsResultsArea", "runDSBtn"],
   "/cluster": ["clusterStatusArea", "clusterResultsArea", "runClusterBtn"],
   "/churn/assess": ["churnStatusArea", "churnResultsArea", "runChurnBtn"],
+  "/churn/update": ["churnStatusArea", "churnResultsArea", "updateChurnBtn"],
+  "/adaptive/update": ["monthlyStatusArea", "monthlyResultsArea", "runMonthlyBtn"],
+  "/adaptive/rollback": ["monthlyStatusArea", "monthlyResultsArea", "adaptiveRollback"],
   "/monthly/update": [
     "monthlyStatusArea",
     "monthlyResultsArea",
@@ -171,6 +174,9 @@ window.addEventListener("DOMContentLoaded", async () => {
     "/cluster": "Cluster",
     "/churn/assess": "Churn",
     "/monthly/update": "Monthly",
+    "/churn/update": "Churn",
+    "/adaptive/update": "Monthly",
+    "/adaptive/rollback": "Monthly",
   }[saved.path];
   document.getElementById("tabBtn" + tab).click();
   const button = document.getElementById(buttonId);
@@ -182,6 +188,9 @@ window.addEventListener("DOMContentLoaded", async () => {
     "/dataset_overview": renderDSResults,
     "/cluster": renderClusterResults,
     "/monthly/update": window.renderMonthly,
+    "/adaptive/update": window.renderMonthly,
+    "/adaptive/rollback": window.renderMonthly,
+    "/churn/update": window.renderChurnResults,
     "/churn/assess": window.renderChurnResults,
   };
   const task = (async () => {

@@ -1,26 +1,12 @@
 <div class="tab-panel active" id="tabMonthly"><div class="panel">
-<h2>یادگیری ماهانه</h2>
-
-<label for="monthlyMonth">آخرین ماه کامل مشاهده (سال و ماه میلادی)</label>
-<input id="monthlyMonth" type="month">
-{% for source, field, standard, title in [('order', 'monthlyOrder', 'ARPU_CLV_GROWTH', 'خریدها'), ('data_cdr', 'monthlyData', 'DATA_USAGE', 'مصرف اینترنت'), ('voice_cdr', 'monthlyVoice', 'VOICE_USAGE', 'مکالمه')] %}
-<div class="domain-block">
-<h3>فایل {{ title }}</h3>
-<label for="{{ field }}">مسیر فایل داده</label>
-<input id="{{ field }}" value="{{ defaults.standards[standard].path }}">
-{% for value in defaults.standards[standard].columns %}
-<label for="monthly-{{ source }}-{{ loop.index0 }}">{{ ['شناسه مشتری', 'تاریخ', 'مقدار'][loop.index0] }}</label>
-<input id="monthly-{{ source }}-{{ loop.index0 }}" class="monthly-col" data-source="{{ source }}" value="{{ value }}" required>
+<h2>یادگیری تطبیقی خوشه‌بندی</h2>
+<p>با امتیازهای دورهٔ جدید، مدل خوشه‌بندی جدید ارزیابی می‌شود. جایگزینی فقط در صورت احراز شرط‌های کیفیت، اندازهٔ خوشه‌ها و پایداری انجام می‌شود. این بخش مدل ریزش را تغییر نمی‌دهد.</p>
+<label for="adaptiveMonth">دورهٔ فایل‌های امتیازدهی (سال و ماه میلادی)</label><input id="adaptiveMonth" type="month">
+<p>برای استفاده از آخرین خروجی‌های امتیازدهی، مسیرها را خالی بگذارید. برای دورهٔ دیگر، مسیر هر شش فایل را وارد کنید.</p>
+{% for key, title in [('ARPU_CLV_GROWTH', 'درآمد، ارزش طول عمر و رشد'), ('DATA_USAGE', 'مصرف اینترنت'), ('VOICE_USAGE', 'مکالمه'), ('Transaction_Frequency', 'تعداد تراکنش'), ('TEMPORAL_STABILITY', 'پایداری زمانی'), ('CONSISTENCY_INDEX', 'شاخص سازگاری')] %}
+<label for="adaptive-{{ key }}">{{ title }}</label><input id="adaptive-{{ key }}" class="adaptive-source" data-source="{{ key }}">
 {% endfor %}
-{% if source == 'order' %}
-<label for="monthly-order-status">ستون وضعیت سفارش (وضعیت موفق: 30)</label>
-<input id="monthly-order-status" class="monthly-col" data-source="order" value="OrderStatusId" required>
-<label for="monthly-order-event">ستون شناسه رویداد (اختیاری؛ برای حذف تکرارها)</label>
-<input id="monthly-order-event" class="monthly-col" data-source="order" value="Id">
-{% endif %}
-</div>
-{% endfor %}
-<label style="display:flex;align-items:center;gap:8px"><input id="monthlyComplete" type="checkbox" style="width:auto">تأیید می‌کنم هر سه منبع تا پایان ماه انتخاب‌شده کامل هستند</label>
-
-<button id="runMonthlyBtn" class="run-btn">اجرای به‌روزرسانی ماهانه</button>
+<label><input id="adaptiveConfirm" type="checkbox" style="width:auto">تأیید می‌کنم هر شش فایل مربوط به دورهٔ انتخاب‌شده و تعریف امتیاز یکسان هستند</label>
+<button id="runMonthlyBtn" class="run-btn" type="button">ارزیابی و به‌روزرسانی مدل خوشه‌بندی</button>
+<button id="adaptiveRollback" class="add-col" type="button" disabled>بازگشت به مدل و خروجی نسخهٔ قبلی</button>
 </div><div id="monthlyStatusArea"></div><div id="monthlyResultsArea"></div></div>
