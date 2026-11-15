@@ -29,16 +29,6 @@ function renderClusterResults(data) {
 }
 
 async function runCluster() {
-  const apiUrl = document.getElementById("clusterApiUrl").value.trim();
-  if (!apiUrl) {
-    setError(
-      "نشانی سرویس پردازش را وارد کنید.",
-      clusterStatusArea,
-      clusterResultsArea,
-    );
-    return;
-  }
-
   runClusterBtn.disabled = true;
   setLoading(
     clusterStatusArea,
@@ -47,7 +37,7 @@ async function runCluster() {
   );
 
   try {
-    const data = await postJson(apiUrl, {
+    const data = await postJson("/cluster", {
       run_missing: false,
       run_stability: document.getElementById("clusterStability").checked,
     });
