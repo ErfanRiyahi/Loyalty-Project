@@ -61,3 +61,10 @@ Rejected candidates are archived without overwriting active predictions or point
 Evaluate once new period scores are available; the application performs the comparison and promotion automatically within that run. No unattended calendar scheduler is installed. Adaptive artifacts live under `outputs/adaptive`, independent churn history/models under `outputs/churn`, and immutable clustering model versions under `outputs/models`.
 
 API routes: `/adaptive/update`, `/adaptive/status`, `/adaptive/rollback`, `/adaptive/download`, `/adaptive/report`; `/churn/update`, `/churn/customers` and their download routes are independent. Legacy `/monthly/update` and `/monthly/status` now alias adaptive clustering and require the new scored-input payload, not raw churn feeds.
+
+
+## Processing status and technical details
+
+The header is compact and has no revision badge. While a job runs, its status shows the current useful stage and elapsed time; the generic request-wrapper stage stays internal. Completion shows a concise message and total elapsed time. Technical details are collapsed by default and contain stage durations, the operation ID, Copy ID and a link to `/jobs/<id>`. Expanded details and copy feedback survive polling updates. Copy failures leave the ID selectable for manual copying. Reconnect/reload recovery still uses the same server operation rather than starting a duplicate job.
+
+Dataset Overview no longer displays dataframe memory usage in the main UI; the backend profile/report still retains it. Job tracking remains in-memory and is unavailable after a server restart; finished records can be pruned after roughly one hour when a new job starts.
