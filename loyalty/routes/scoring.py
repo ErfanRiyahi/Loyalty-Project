@@ -129,7 +129,7 @@ def consistency_index_route():
         # --- plug in your existing Consistency Index function here ---
         # Passes each domain's DataFrame and its 3 columns; returns a
         # DataFrame with MSISDN + final CI_Score directly (no file write).
-        result_df = consistency_index(
+        result_df, diagnostics = consistency_index(
             domain_dfs["data"],
             domains_payload["data"]["columns"],
             domain_dfs["voice"],
@@ -138,6 +138,7 @@ def consistency_index_route():
             domains_payload["spend"]["columns"],
             domain_dfs["txn"],
             domains_payload["txn"]["columns"],
+            return_diagnostics=True,
         )
 
         # persist to disk — /cluster reads this back the same way it reads the
@@ -159,6 +160,7 @@ def consistency_index_route():
                 },
                 "score": {
                     "label": "CONSISTENCY_INDEX",
+                    "diagnostics": diagnostics,
                     "output_file": SCORE_FILES["CONSISTENCY_INDEX"],
                     "rows_scored": len(result_df),
                     "description": f"Consistency Index computed across {', '.join(CI_DOMAINS)} domains.",

@@ -40,6 +40,11 @@ def clean_data(df, columns):
 
     # Split six months
     df_6m = utils.split_six_months(df_cleaned, columns)
+    if df_6m.empty:
+        return pd.DataFrame({"MSISDN": pd.Series(dtype="string"),
+                             "YearMonth": pd.Series(dtype="period[M]"),
+                             usage_name: pd.Series(dtype=float),
+                             "W_" + usage_name: pd.Series(dtype=float)})
 
     # Flag active customers and winsorize them
     df_6m["IS_ACTIVE"] = (df_6m[usage_name] > 0).astype(int)
@@ -151,6 +156,7 @@ def consistency_index(
     spend_columns,
     df_txn,
     txn_columns,
+    return_diagnostics=False,
 ):
     """
     Compute the final Consistency Index across the 4 domains.
@@ -161,17 +167,27 @@ def consistency_index(
     Returns a DataFrame with columns: MSISDN, CI_Score
     (sorted descending by CI_Score).
     """
-    cleaned_data = clean_data(df_data, data_columns)
-    CI_data = calculate_CI(cleaned_data, data_columns, "data")
-
-    cleaned_voice = clean_data(df_voice, voice_columns)
-    CI_voice = calculate_CI(cleaned_voice, voice_columns, "voice")
-
-    cleaned_spend = clean_data(df_spend, spend_columns)
-    CI_spend = calculate_CI(cleaned_spend, spend_columns, "spend")
-
-    cleaned_txn = clean_data(df_txn, txn_columns)
-    CI_txn = calculate_CI(cleaned_txn, txn_columns, "txn")
+    sources = {"data": (df_data, data_columns), "voice": (df_voice, voice_columns),
+               "spend": (df_spend, spend_columns), "txn": (df_txn, txn_columns)}
+    scores, domains, months, customers = {}, {}, {}, {}
+    for domain, (raw, columns) in sources.items():
+        cleaned = clean_data(raw, columns)
+        scores[domain] = (calculate_CI(cleaned, columns, domain) if not cleaned.empty
+                          else pd.DataFrame({"MSISDN": pd.Series(dtype="string"),
+                                             "CI_" + domain: pd.Series(dtype=float)}))
+        months[domain] = set(cleaned.YearMonth.astype(str))
+        customers[domain] = set(scores[domain].MSISDN)
+        dates = pd.to_datetime(raw[columns[1]], errors="coerce", format="mixed", utc=True)
+        domains[domain] = {
+            "input_rows": len(raw), "input_customers": int(raw[columns[0]].nunique()),
+            "input_rows_with_missing_fields": int(raw[columns].isna().any(axis=1).sum()),
+            "scored_customers": len(scores[domain]), "observed_months": len(months[domain]),
+            "window_start": min(months[domain]) if months[domain] else None,
+            "window_end": max(months[domain]) if months[domain] else None,
+            "input_date_start": dates.min().isoformat() if dates.notna().any() else None,
+            "input_date_end": dates.max().isoformat() if dates.notna().any() else None,
+        }
+    CI_data, CI_voice, CI_spend, CI_txn = [scores[domain] for domain in ["data", "voice", "spend", "txn"]]
 
     CI_final = (
         CI_data.merge(CI_voice, on="MSISDN")
@@ -195,4 +211,24 @@ def consistency_index(
 
     result = CI_final.sort_values("CI_Score", ascending=False).reset_index(drop=True)
 
-    return result[["MSISDN", "CI_Score"]]
+    result = result[["MSISDN", "CI_Score"]]
+    if not return_diagnostics:
+        return result
+    common = set.intersection(*customers.values())
+    common_months = sorted(set.intersection(*months.values()))
+    warnings = []
+    if any(not values for values in customers.values()):
+        warnings.append({"code": "empty_domain", "message": "حداقل یک حوزه پس از پاک‌سازی و انتخاب بازه، مشتری قابل امتیازدهی ندارد."})
+    if not common:
+        warnings.append({"code": "no_common_customers", "message": "هیچ شناسهٔ مشتری مشترکی در هر چهار حوزه باقی نمانده است؛ شاخص نهایی برای کسی محاسبه نشد. یکسان بودن شناسه‌ها و نمونه‌گیری از مشتریان مشترک را بررسی کنید."})
+    if not common_months:
+        warnings.append({"code": "no_common_months", "message": "پنجره‌های انتخاب‌شده در چهار حوزه ماه مشترک ندارند؛ این خروجی برای مقایسهٔ هم‌زمان حوزه‌ها مناسب نیست. داده‌های یک دورهٔ مشترک را وارد کنید."})
+    if any(len(values) < 6 for values in months.values()):
+        warnings.append({"code": "short_history", "message": "حداقل یک حوزه کمتر از شش ماهِ دارای داده دارد؛ خروجی نباید به‌عنوان شاخص مبتنی بر شش ماه تاریخچهٔ کامل تفسیر شود."})
+    diagnostics = {"domains": domains, "common_customers": len(common),
+                   "common_months": common_months, "output_customers": len(result),
+                   "pairwise_common_customers": [{"first": first, "second": second, "count": len(customers[first] & customers[second])}
+                        for index, first in enumerate(customers) for second in list(customers)[index+1:]],
+                   "warnings": warnings,
+                   "identifier_policy": "رفتار فعلی پاک‌سازی: دو کاراکتر اول شناسه‌های متنی حذف می‌شود؛ قالب شناسه‌ها در همهٔ منابع باید یکسان باشد."}
+    return result, diagnostics
