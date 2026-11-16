@@ -90,6 +90,11 @@ def install(application):
                 data["score"]["download_url"] = export_copy(
                     data["score"]["output_file"]
                 )
+                if request.path == "/consistency_index":
+                    directory = common.OUTPUT_ROOT / "exports"
+                    report = directory / f"{uuid4().hex}_consistency_report.json"
+                    report.write_text(json.dumps(common.json_safe(data["score"]["diagnostics"]), ensure_ascii=False, allow_nan=False, indent=2), encoding="utf-8")
+                    data["score"]["report_download_url"] = "/outputs/download/" + report.name
             elif request.path == "/cluster":
                 data["download_url"] = export_copy(data["output_file"])
                 report = common.OUTPUT_ROOT / "cluster_validation.json"
