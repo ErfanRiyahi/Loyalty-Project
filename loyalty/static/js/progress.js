@@ -45,31 +45,59 @@ async function jobJson(url, options = {}) {
 // Display server-reported state without estimating progress.
 function paintJob(job, path) {
   const area = document.getElementById(operationPanels[path][0]);
-  const live = job.events.filter((event) => event.status === "running").at(-1);
+  const events = job.events.filter(event => event.label !== "Validate input and execute operation");
+  const live = events.filter(event => event.status === "running").at(-1);
   const success = job.status === "succeeded";
-  area.innerHTML = `<section class="panel progress-panel" aria-label="وضعیت پردازش">
- <div class="progress-heading"><span class="eyebrow">وضعیت زنده سرور</span><strong>${success ? "انجام شد" : job.status === "failed" ? "ناموفق" : "در حال پردازش"}</strong></div>
- <h2>${escapeHtml(persianLabel(job.stage || (success ? "خروجی آماده است" : job.events.at(-1)?.label || "آماده‌سازی عملیات")))}</h2>
- ${job.status !== "failed" ? `<progress max="100" ${success ? 'value="100"' : ""} aria-label="پیشرفت عملیات"></progress>` : ""}
- <div class="progress-meta"><span>زمان سپری‌شده کل: ${seconds(job.elapsed_seconds)}</span>${live ? `<span>زمان مرحله جاری: ${seconds(live.elapsed_seconds)}</span>` : ""}</div>
- ${live?.completed_units != null ? `<p>${escapeHtml(persianLabel(live.description || ""))} - ${live.completed_units.toLocaleString("fa-IR")} ${escapeHtml(persianLabel(live.unit || "ردیف"))}</p>` : ""}
- <details open><summary>مدت اجرای مراحل (${job.events.length.toLocaleString("fa-IR")})</summary><ol class="stage-history">${job.events
+  const running = job.status === "running";
+  const detailsOpen = area.querySelector(".job-details")?.open || false;
+  if (area.dataset.operationId !== job.operation_id) {
+    area.dataset.operationId = job.operation_id;
+    area.dataset.copyFeedback = "";
+  }
+  const currentStage = live?.label || (job.stage !== "Validate input and execute operation" && job.stage) || "در حال آماده‌سازی پردازش";
+  const trackingUrl = "/jobs/" + encodeURIComponent(job.operation_id);
+  area.innerHTML = `<section class="panel progress-panel ${running ? "is-running" : "is-finished"}" aria-label="وضعیت پردازش">
+ <div class="progress-heading"><span class="eyebrow">وضعیت پردازش</span><strong>${success ? "پردازش تکمیل شد" : running ? "در حال پردازش" : "پردازش ناموفق بود"}</strong></div>
+ ${running ? `<h2>${escapeHtml(persianLabel(currentStage))}</h2><progress max="100" aria-label="پیشرفت عملیات"></progress>` : ""}
+ <div class="progress-meta"><span>زمان سپری‌شده کل: ${seconds(job.elapsed_seconds)}</span>${live && running ? `<span>زمان مرحله جاری: ${seconds(live.elapsed_seconds)}</span>` : ""}</div>
+ ${running && live?.completed_units != null ? `<p>${escapeHtml(persianLabel(live.description || ""))} - ${live.completed_units.toLocaleString("fa-IR")} ${escapeHtml(persianLabel(live.unit || "ردیف"))}</p>` : ""}
+ <details class="job-details" ${detailsOpen ? "open" : ""}><summary>جزئیات فنی</summary>
+ <p class="job-id">شناسه عملیات: <bdi>${escapeHtml(job.operation_id)}</bdi></p>
+ <div class="job-actions"><button type="button" class="add-col" data-copy-job="${escapeHtml(job.operation_id)}">کپی شناسه</button><a href="${trackingUrl}" target="_blank" rel="noopener noreferrer">مشاهدهٔ وضعیت درخواست</a></div>
+ <p class="copy-status" role="status" aria-live="polite">${escapeHtml(area.dataset.copyFeedback || "")}</p>
+ ${success ? '<progress max="100" value="100" aria-label="پیشرفت عملیات"></progress>' : ""}
+ <p class="compact-meta">مدت اجرای مراحل (${events.length.toLocaleString("fa-IR")})</p><ol class="stage-history">${events
    .slice(-50)
-   .map(
-     (event) =>
-       `<li class="${event.status}"><span>${event.status === "completed" ? "✓" : event.status === "failed" ? "!" : "◌"} ${escapeHtml(persianLabel(event.label))}</span><bdi>${seconds(event.elapsed_seconds)}</bdi></li>`,
-   )
-   .join("")}</ol></details>
- <small class="job-id">شناسه عملیات: <bdi>${escapeHtml(job.operation_id)}</bdi></small></section>`;
+   .map(event => `<li class="${event.status}"><span>${event.status === "completed" ? "✓" : event.status === "failed" ? "!" : "◌"} ${escapeHtml(persianLabel(event.label))}</span><bdi>${seconds(event.elapsed_seconds)}</bdi></li>`)
+   .join("")}</ol></details></section>`;
   area.dataset.jobStatus = job.status;
   area.setAttribute("aria-busy", String(job.status === "running"));
   if (area.dataset.announcement !== `${job.status}:${job.stage}`) {
     area.dataset.announcement = `${job.status}:${job.stage}`;
     document.getElementById("operationAnnouncement").textContent = success
       ? "عملیات با موفقیت پایان یافت"
-      : persianLabel(job.stage) || "عملیات ناموفق بود";
+      : running ? persianLabel(currentStage) : "عملیات ناموفق بود";
   }
 }
+// Delegation survives polling updates; clipboard failures leave the ID selectable.
+document.addEventListener("click", async event => {
+  const button = event.target.closest("button[data-copy-job]");
+  if (!button) return;
+  const panel = button.closest(".progress-panel");
+  const area = panel.parentElement;
+  let message;
+  try {
+    await navigator.clipboard.writeText(button.dataset.copyJob);
+    message = "شناسه کپی شد.";
+  } catch {
+    message = "کپی خودکار ممکن نشد؛ شناسه را انتخاب و کپی کنید.";
+  }
+  const feedback = area.querySelector(".copy-status");
+  if (area.dataset.operationId === button.dataset.copyJob && feedback) {
+    area.dataset.copyFeedback = message;
+    feedback.textContent = message;
+  }
+});
 // Reconnect to the same job instead of starting another calculation.
 async function watchJob(base, id, path) {
   const area = document.getElementById(operationPanels[path][0]);

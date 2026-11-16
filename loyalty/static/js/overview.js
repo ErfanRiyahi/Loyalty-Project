@@ -40,12 +40,11 @@ function renderDSResults(data) {
     );
   }
 
-  const memory = (Number(summary.memory_bytes || 0) / 1048576).toFixed(2);
-  let metadata = `حافظه: ${memory} مگابایت`;
+  let metadata = "";
   if (summary.date_range) {
     const firstDate = summary.date_range.start?.slice(0, 10) || "نامشخص";
     const lastDate = summary.date_range.end?.slice(0, 10) || "نامشخص";
-    metadata += ` | بازه تاریخ: ${escapeHtml(firstDate)} - ${escapeHtml(lastDate)}`;
+    metadata = `بازه تاریخ: ${escapeHtml(firstDate)} - ${escapeHtml(lastDate)}`;
   }
 
   let chartContent =
@@ -93,7 +92,7 @@ function renderDSResults(data) {
     <section class="panel">
       <div class="result-summary"><h2>اطلاعات اولیه داده‌ها</h2>${downloadButton(data.download_url, "دانلود گزارش")}</div>
       <div class="profile-metrics">${metrics}</div>
-      <p class="compact-meta">${metadata}</p>
+      ${metadata ? `<p class="compact-meta">${metadata}</p>` : ""}
     </section>
     <section class="panel"><h2>میزان مصرف در طول زمان</h2>${chartContent}</section>
     <section class="panel"><h2>ستون‌ها</h2>

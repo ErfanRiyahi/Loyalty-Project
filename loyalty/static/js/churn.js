@@ -12,18 +12,23 @@
     controller = new AbortController();
     const requestController = controller;
     button.disabled = true;
-    status.textContent = "در حال خواندن فهرست مشتریان…";
+    if (!status.querySelector(".progress-panel")) status.replaceChildren();
+    status.querySelector(".list-loading")?.remove();
+    const notice = document.createElement("p");
+    notice.className = "list-loading";
+    notice.textContent = "در حال خواندن فهرست مشتریان…";
+    status.appendChild(notice);
     const params = new URLSearchParams({status: selection, risk, q: query, page, page_size: 25});
     try {
       const response = await fetch("/churn/customers?" + params, {cache: "no-store", signal: requestController.signal});
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "خواندن فهرست ممکن نشد.");
-      status.textContent = "";
+      notice.remove();
       render(data, params);
     } catch (error) {
       if (error.name !== "AbortError") {
         results.replaceChildren();
-        status.textContent = error.message;
+        notice.textContent = error.message;
       }
     } finally { if (controller === requestController) button.disabled = false; }
   }

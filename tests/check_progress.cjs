@@ -14,7 +14,7 @@ const context={URL,Map,Promise,FormData,console,crypto:require('crypto').webcryp
  escapeHtml:s=>String(s??'').replaceAll('<','&lt;'),
  setTimeout:fn=>{queueMicrotask(fn);},
  sessionStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},
- document:{getElementById:k=>elements[k]??=(new Element())},
+ document:{addEventListener:(k,fn)=>handlers["document:"+k]=fn,getElementById:k=>elements[k]??=(new Element())},
  window:{addEventListener:(k,fn)=>handlers[k]=fn},
  fetch:async()=>{calls++;let next=sequence.shift();if(next instanceof Error)throw next;if(!next)throw new Error('Unexpected fetch');return {ok:next.status<400,status:next.status,json:async()=>next.data};},
  setError:()=>assert.fail('unexpected error'),
@@ -27,6 +27,13 @@ const done={...live,status:'succeeded',stage:null,percentage:100,result:{score:4
  context.testLive=live;vm.runInContext("paintJob(testLive,'/analyze')",context);
  assert(!elements.statusArea.innerHTML.includes('value="100"'));
  assert(elements.statusArea.innerHTML.includes('Clean data'));
+ assert(elements.statusArea.innerHTML.includes('<summary>جزئیات فنی</summary>'));
+ assert(!elements.statusArea.innerHTML.includes('وضعیت زنده سرور'));
+ assert(elements.statusArea.innerHTML.includes('href="/jobs/real-id"'));
+ context.testWrapper={...live,stage:'Validate input and execute operation',events:[{...live.events[0],label:'Validate input and execute operation'}]};
+ vm.runInContext("paintJob(testWrapper,'/analyze')",context);
+ assert(!elements.statusArea.innerHTML.includes('Validate input and execute operation'));
+ vm.runInContext("paintJob(testLive,'/analyze')",context);
  assert(elements.statusArea.innerHTML.includes('زمان سپری‌شده کل'));
  assert(!elements.statusArea.innerHTML.toLowerCase().includes('remaining'));
  sequence=[{status:202,data:{operation_id:'real-id'}},{status:200,data:live},new Error('offline'),{status:200,data:done}];
