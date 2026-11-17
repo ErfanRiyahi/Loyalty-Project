@@ -3,48 +3,48 @@
       <div class="domain-block">
         <div class="domain-title"><span class="domain-tag">اینترنت</span>حوزه مصرف اینترنت</div>
         <label>مسیر فایل داده</label>
-        <input type="text" class="ci-address" data-domain="data" placeholder="{{ defaults.ci["data"].path }}" value="{{ defaults.ci["data"].path }}">
+        <input type="text" id="ci-address-data" class="ci-address" data-domain="data" placeholder="{{ defaults.ci["data"].path }}" value="{{ defaults.ci["data"].path }}">
         <label>ستون‌ها به‌ترتیب: شناسه مشتری، تاریخ، مقدار</label>
         <div class="domain-cols">
-          <input type="text" class="ci-col" data-domain="data" data-col="0" placeholder="{{ defaults.ci["data"].columns[0] }}" value="{{ defaults.ci["data"].columns[0] }}">
-          <input type="text" class="ci-col" data-domain="data" data-col="1" placeholder="{{ defaults.ci["data"].columns[1] }}" value="{{ defaults.ci["data"].columns[1] }}">
-          <input type="text" class="ci-col" data-domain="data" data-col="2" placeholder="{{ defaults.ci["data"].columns[2] }}" value="{{ defaults.ci["data"].columns[2] }}">
+          <input type="text" id="ci-col-data-0" class="ci-col" data-domain="data" data-col="0" placeholder="{{ defaults.ci["data"].columns[0] }}" value="{{ defaults.ci["data"].columns[0] }}">
+          <input type="text" id="ci-col-data-1" class="ci-col" data-domain="data" data-col="1" placeholder="{{ defaults.ci["data"].columns[1] }}" value="{{ defaults.ci["data"].columns[1] }}">
+          <input type="text" id="ci-col-data-2" class="ci-col" data-domain="data" data-col="2" placeholder="{{ defaults.ci["data"].columns[2] }}" value="{{ defaults.ci["data"].columns[2] }}">
         </div>
       </div>
 
       <div class="domain-block">
         <div class="domain-title"><span class="domain-tag">مکالمه</span>حوزه مکالمه</div>
         <label>مسیر فایل داده</label>
-        <input type="text" class="ci-address" data-domain="voice" placeholder="{{ defaults.ci["voice"].path }}" value="{{ defaults.ci["voice"].path }}">
+        <input type="text" id="ci-address-voice" class="ci-address" data-domain="voice" placeholder="{{ defaults.ci["voice"].path }}" value="{{ defaults.ci["voice"].path }}">
         <label>ستون‌ها به‌ترتیب: شناسه مشتری، تاریخ، مقدار</label>
         <div class="domain-cols">
-          <input type="text" class="ci-col" data-domain="voice" data-col="0" placeholder="{{ defaults.ci["voice"].columns[0] }}" value="{{ defaults.ci["voice"].columns[0] }}">
-          <input type="text" class="ci-col" data-domain="voice" data-col="1" placeholder="{{ defaults.ci["voice"].columns[1] }}" value="{{ defaults.ci["voice"].columns[1] }}">
-          <input type="text" class="ci-col" data-domain="voice" data-col="2" placeholder="{{ defaults.ci["voice"].columns[2] }}" value="{{ defaults.ci["voice"].columns[2] }}">
+          <input type="text" id="ci-col-voice-0" class="ci-col" data-domain="voice" data-col="0" placeholder="{{ defaults.ci["voice"].columns[0] }}" value="{{ defaults.ci["voice"].columns[0] }}">
+          <input type="text" id="ci-col-voice-1" class="ci-col" data-domain="voice" data-col="1" placeholder="{{ defaults.ci["voice"].columns[1] }}" value="{{ defaults.ci["voice"].columns[1] }}">
+          <input type="text" id="ci-col-voice-2" class="ci-col" data-domain="voice" data-col="2" placeholder="{{ defaults.ci["voice"].columns[2] }}" value="{{ defaults.ci["voice"].columns[2] }}">
         </div>
       </div>
 
       <div class="domain-block">
         <div class="domain-title"><span class="domain-tag">هزینه</span>حوزه هزینه</div>
         <label>مسیر فایل داده</label>
-        <input type="text" class="ci-address" data-domain="spend" placeholder="{{ defaults.ci["spend"].path }}" value="{{ defaults.ci["spend"].path }}">
+        <input type="text" id="ci-address-spend" class="ci-address" data-domain="spend" placeholder="{{ defaults.ci["spend"].path }}" value="{{ defaults.ci["spend"].path }}">
         <label>ستون‌ها به‌ترتیب: شناسه مشتری، تاریخ، مقدار</label>
         <div class="domain-cols">
-          <input type="text" class="ci-col" data-domain="spend" data-col="0" placeholder="{{ defaults.ci["spend"].columns[0] }}" value="{{ defaults.ci["spend"].columns[0] }}">
-          <input type="text" class="ci-col" data-domain="spend" data-col="1" placeholder="{{ defaults.ci["spend"].columns[1] }}" value="{{ defaults.ci["spend"].columns[1] }}">
-          <input type="text" class="ci-col" data-domain="spend" data-col="2" placeholder="{{ defaults.ci["spend"].columns[2] }}" value="{{ defaults.ci["spend"].columns[2] }}">
+          <input type="text" id="ci-col-spend-0" class="ci-col" data-domain="spend" data-col="0" placeholder="{{ defaults.ci["spend"].columns[0] }}" value="{{ defaults.ci["spend"].columns[0] }}">
+          <input type="text" id="ci-col-spend-1" class="ci-col" data-domain="spend" data-col="1" placeholder="{{ defaults.ci["spend"].columns[1] }}" value="{{ defaults.ci["spend"].columns[1] }}">
+          <input type="text" id="ci-col-spend-2" class="ci-col" data-domain="spend" data-col="2" placeholder="{{ defaults.ci["spend"].columns[2] }}" value="{{ defaults.ci["spend"].columns[2] }}">
         </div>
       </div>
 
       <div class="domain-block">
         <div class="domain-title"><span class="domain-tag">تراکنش‌ها</span>حوزه تعداد تراکنش</div>
         <label>مسیر فایل داده</label>
-        <input type="text" class="ci-address" data-domain="txn" placeholder="{{ defaults.ci["txn"].path }}" value="{{ defaults.ci["txn"].path }}">
+        <input type="text" id="ci-address-txn" class="ci-address" data-domain="txn" placeholder="{{ defaults.ci["txn"].path }}" value="{{ defaults.ci["txn"].path }}">
         <label>ستون‌ها به‌ترتیب: شناسه مشتری، تاریخ، مقدار</label>
         <div class="domain-cols">
-          <input type="text" class="ci-col" data-domain="txn" data-col="0" placeholder="{{ defaults.ci["txn"].columns[0] }}" value="{{ defaults.ci["txn"].columns[0] }}">
-          <input type="text" class="ci-col" data-domain="txn" data-col="1" placeholder="{{ defaults.ci["txn"].columns[1] }}" value="{{ defaults.ci["txn"].columns[1] }}">
-          <input type="text" class="ci-col" data-domain="txn" data-col="2" placeholder="{{ defaults.ci["txn"].columns[2] }}" value="{{ defaults.ci["txn"].columns[2] }}">
+          <input type="text" id="ci-col-txn-0" class="ci-col" data-domain="txn" data-col="0" placeholder="{{ defaults.ci["txn"].columns[0] }}" value="{{ defaults.ci["txn"].columns[0] }}">
+          <input type="text" id="ci-col-txn-1" class="ci-col" data-domain="txn" data-col="1" placeholder="{{ defaults.ci["txn"].columns[1] }}" value="{{ defaults.ci["txn"].columns[1] }}">
+          <input type="text" id="ci-col-txn-2" class="ci-col" data-domain="txn" data-col="2" placeholder="{{ defaults.ci["txn"].columns[2] }}" value="{{ defaults.ci["txn"].columns[2] }}">
         </div>
       </div>
 
