@@ -75,3 +75,12 @@ Dataset Overview no longer displays dataframe memory usage in the main UI; the b
 Consistency still uses the intersection of customers scored in all four domains; it does not silently replace the existing formula or inner joins. A successful request can legitimately contain zero final customers. The UI now explains that outcome and shows each domain's input rows/customers, scored customers, effective months, pairwise intersections and common-month coverage. It warns for an empty cleaned domain, no common customers, non-overlapping effective months and fewer than six observed months. These warnings describe coverage; they do not certify complete six-month observation or aligned identifiers. The existing identifier-cleaning policy is stated explicitly rather than changed without confirmed source formats.
 
 The response includes `score.diagnostics` and an immutable `score.report_download_url` for a JSON coverage report. No customer identifiers or raw sample records are included in that report. Non-overlapping periods remain visible as a comparability warning even if some customer IDs intersect. Sources should describe the same observation period; random independent row samples are insufficient to establish cross-source customer overlap in the original full datasets.
+
+
+## Independent domain defaults
+
+Consistency Index and Temporal Stability now give each source path and each identifier/date/value field its own stable ID. Their settings are grouped by domain, and independently edited values are applied both to the actual forms and to request payloads. Previously, unnamed domain-column fields shared an empty storage key and saving/reloading applied the last column value to all of them.
+
+The v2 browser settings migrate unambiguous v1 preferences, including the legacy source-path keys and unrelated standard/churn settings. Collapsed values under the old empty key cannot reconstruct the individual custom column names: those fields return to their correct application defaults, with a visible explanation asking users to reenter any custom names once. Reset clears both storage versions so corrupt values cannot reappear.
+
+Browser regression (development only): with Playwright/Chromium installed and the app running, execute `python tests/check_defaults_browser.py http://127.0.0.1:5000/`. It verifies independent values, saving/reload, CI/TS request payloads, migration, preserved preferences and reset.

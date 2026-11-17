@@ -1,5 +1,6 @@
 (() => {
-  const storageKey = "loyalty.input-defaults.v1";
+  const storageKey = "loyalty.input-defaults.v2";
+  const legacyStorageKey = "loyalty.input-defaults.v1";
   const container = document.getElementById("defaultsFields");
   const status = document.getElementById("defaultsStatus");
   const entries = [];
@@ -10,6 +11,7 @@
     const label = document.createElement("label");
     const editor = field ? field.cloneNode(true) : document.createElement("input");
     editor.id = `default-input-${++serial}`;
+    editor.dataset.defaultKey = key;
     editor.removeAttribute("class");
     editor.removeAttribute("name");
     if (editor.tagName === "INPUT") editor.type = field?.type === "checkbox" ? "checkbox" : "text";
@@ -48,13 +50,30 @@
         });
       }
     }
+    const domainSections = new Map();
+    const domainTitles = {data:"اینترنت",voice:"مکالمه",spend:"هزینه",txn:"تعداد تراکنش",order:"خریدها"};
     for (const field of panel.querySelectorAll("input, select")) {
-      if (excluded.has(field.id) || field.type === "file" || field.classList.contains("col-input") || field.id === "datasetAddress") continue;
+      if (!field.id || excluded.has(field.id) || field.type === "file" || field.classList.contains("col-input") || field.id === "datasetAddress") continue;
       const label = Array.from(panel.querySelectorAll("label")).find(item => item.htmlFor === field.id || item.contains(field));
-      const domain = field.dataset.domain ? ` (${field.dataset.domain})` : "";
-      const text = (label?.textContent.trim() || field.getAttribute("aria-label") || field.id) + domain;
+      let parent = section;
+      if (["tabCI", "tabTS"].includes(panel.id) && field.dataset.domain) {
+        const domain = field.dataset.domain;
+        if (!domainSections.has(domain)) {
+          const group = document.createElement("fieldset");
+          group.className = "domain-block";
+          const legend = document.createElement("legend");
+          legend.textContent = domainTitles[domain] || domain;
+          group.appendChild(legend);
+          section.appendChild(group);
+          domainSections.set(domain, group);
+        }
+        parent = domainSections.get(domain);
+      }
+      const domain = field.dataset.domain && parent === section ? ` (${domainTitles[field.dataset.domain] || field.dataset.domain})` : "";
+      const columnTitle = field.dataset.col !== undefined ? ["شناسه مشتری", "تاریخ", "مقدار"][Number(field.dataset.col)] : null;
+      const text = (columnTitle || label?.textContent.trim() || field.getAttribute("aria-label") || field.id) + domain;
       const original = field.type === "checkbox" ? field.checked : field.value;
-      addSetting(section, field.id, text, original, value => {
+      addSetting(parent, field.id, text, original, value => {
         if (field.type === "checkbox") field.checked = value;
         else field.value = value;
       }, field);
@@ -63,7 +82,9 @@
 
   function readSaved() {
     try {
-      const saved = JSON.parse(localStorage.getItem(storageKey) || "{}");
+      const current = localStorage.getItem(storageKey);
+      const migrating = current === null;
+      const saved = JSON.parse(current ?? localStorage.getItem(legacyStorageKey) ?? "{}");
       if (!saved || typeof saved !== "object" || Array.isArray(saved)) return {};
       // Preserve raw-source defaults when moving the old monthly form into Churn.
       for (const [key, value] of Object.entries(saved)) {
@@ -71,6 +92,20 @@
           const next = "churn" + key.slice("monthly".length);
           if (!Object.hasOwn(saved, next)) saved[next] = value;
         }
+      }
+      if (migrating) {
+        // Old domain columns all used the empty key, so their individual values are unrecoverable.
+        // Preserve unambiguous paths and all explicitly identified settings.
+        const paths = ["ci-address-data", "ci-address-voice", "ci-address-spend", "ci-address-txn", "ts-address-order", "ts-address-data", "ts-address-voice"];
+        paths.forEach((key, index) => {
+          const legacy = "field-" + (index + 1);
+          if (!Object.hasOwn(saved, key) && typeof saved[legacy] === "string") saved[key] = saved[legacy];
+        });
+        const validKeys = new Set(entries.map(entry => entry.key));
+        const migrated = Object.fromEntries(Object.entries(saved).filter(([key]) => validKeys.has(key)));
+        localStorage.setItem(storageKey, JSON.stringify(migrated));
+        if (Object.hasOwn(saved, "")) status.textContent = "تنظیمات قدیمی منتقل شد؛ نام ستون‌های سازگاری و پایداری زمانی که به‌اشتباه مشترک ذخیره شده بودند به پیش‌فرض صحیح برگشتند. نام‌های سفارشی را در صورت نیاز دوباره وارد و ذخیره کنید.";
+        return migrated;
       }
       return saved;
     } catch {
@@ -104,6 +139,7 @@
   document.getElementById("resetDefaultsBtn").addEventListener("click", () => {
     try {
       localStorage.removeItem(storageKey);
+      localStorage.removeItem(legacyStorageKey);
       apply({});
       status.textContent = "پیش‌فرض‌های اصلی بازیابی شدند.";
     } catch {
