@@ -116,10 +116,13 @@ def clean_data(df: pd.Series, columns):
     df["YearMonth"] = df[date_name].dt.to_period("M")
 
     # Fix the MSISDN format
-    if df[user_id].dtype == "float64":
-        df[user_id] = df[user_id].astype("Int64").astype("string")
-    else:
-        df["MSISDN"] = df[user_id].astype("string").str[2:]
+    df['MSISDN'] = df[user_id].astype(float).astype(int).astype(str)
+    mask = (
+        (df['MSISDN'].str.len() == 10) &
+        (~df['MSISDN'].str.startswith('98'))
+    )
+    
+    df.loc[mask, 'MSISDN'] = '98' + df.loc[mask, 'MSISDN']
 
     if "OrderStatusId" in columns:
         # Select users with successful order
