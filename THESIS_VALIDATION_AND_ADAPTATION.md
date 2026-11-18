@@ -8,7 +8,7 @@ This package contains only changed and new files. Apply it to the latest restruc
 
 The common reader now uses the supplied implementation: `low_memory=True`, string dtype for requested MSISDN variants, and `sep="|"` for `.txt`. With `usecols=None`, identifier types are inferred, exactly as in the supplied code. `low_memory=True` reduces parser pressure but still returns a complete DataFrame; it is not a streaming pipeline.
 
-The customer-ID cleaners have not been changed because the source formats are unconfirmed. They currently remove the first two characters from string IDs. Verify an anonymized example from each source before trusting customer joins: the same subscriber must resolve to the same identifier. The new clustering input checks reject empty or duplicate IDs but cannot detect different IDs that actually belong to one person. Confirm that the voice source is pipe-delimited.
+All active customer-ID cleaners now share loyalty.identifiers.normalize_identifiers: recognized Iranian mobile spellings map to 98-prefixed numbers; opaque/anonymized identifiers remain text. The legacy unconditional removal of two characters and numeric float conversion are no longer used. Verify that anonymization is consistent across sources: matching real subscribers must still resolve to matching identifiers. Clustering rejects empty/duplicate IDs but cannot infer cross-source identity. See README.md for rebuilding old score outputs and versioned churn-history migration.
 
 ## Algorithms currently used
 

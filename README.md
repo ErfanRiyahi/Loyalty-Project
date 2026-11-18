@@ -84,3 +84,12 @@ Consistency Index and Temporal Stability now give each source path and each iden
 The v2 browser settings migrate unambiguous v1 preferences, including the legacy source-path keys and unrelated standard/churn settings. Collapsed values under the old empty key cannot reconstruct the individual custom column names: those fields return to their correct application defaults, with a visible explanation asking users to reenter any custom names once. Reset clears both storage versions so corrupt values cannot reappear.
 
 Browser regression (development only): with Playwright/Chromium installed and the app running, execute `python tests/check_defaults_browser.py http://127.0.0.1:5000/`. It verifies independent values, saving/reload, CI/TS request payloads, migration, preserved preferences and reset.
+
+
+## Shared customer identifier policy
+
+Scoring, Consistency Index, Temporal Stability and churn ingestion all use `loyalty.identifiers.normalize_identifiers`. Recognized Iranian mobile forms (`9121234567`, `09121234567`, `989121234567`, `+989121234567`, `00989121234567`) map to `989121234567`. Numeric `.0`/scientific spellings are parsed with Decimal only when they resolve to a recognized mobile, avoiding float rounding. Persian/Arabic digits and common phone separators are supported. Opaque IDs (including anonymized hashes and non-phone numeric strings with leading zeros) retain their original text apart from surrounding whitespace. Missing/blank identifiers are excluded by scoring/temporal cleaning and rejected by the history helper.
+
+The development notebook and tracked utility checkpoint delegate to this shared policy as well. Consistency diagnostics describe the current policy.
+
+After upgrading, regenerate every score output (including Temporal Stability and Consistency Index) before clustering, so old and new identifier formats are not mixed. Churn history/models now live under `outputs/churn/msisdn-v2`; the old `outputs/churn` history/models/reports are retained but are not merged or reused, because truncated IDs cannot be reliably reconstructed. Run Update predictions with the original historical sources to initialize the new history/model. Existing immutable historical churn download links still resolve to the archived reports.

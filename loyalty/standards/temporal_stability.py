@@ -1,6 +1,7 @@
 from ..progress import stage, stage_call, units, stage_scope
 import pandas as pd
 import numpy as np
+from ..identifiers import normalize_identifiers
 
 
 # --------------------------------------------------------------------------
@@ -18,14 +19,8 @@ def clean_data(df, columns):
     # Remove rows with nan datetime
     df = df.dropna(subset=[date_name]).copy()
 
-    # Fix the MSISDN format
-    # NOTE: fixed so both branches always populate a "MSISDN" column —
-    # every downstream function hardcodes "MSISDN", so the float64 branch
-    # previously left the DataFrame without one and broke everything after it.
-    if df[user_id].dtype == "float64":
-        df["MSISDN"] = df[user_id].astype("Int64").astype("string")
-    else:
-        df["MSISDN"] = df[user_id].astype("string").str[2:]
+    df["MSISDN"] = normalize_identifiers(df[user_id])
+    df = df.dropna(subset=["MSISDN"]).copy()
 
     if "OrderStatusId" in columns:
         # Select users with successful order

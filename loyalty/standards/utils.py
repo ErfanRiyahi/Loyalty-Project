@@ -1,6 +1,7 @@
 from ..progress import stage, stage_call, units, stage_scope
 import pandas as pd
 import numpy as np
+from ..identifiers import normalize_identifiers
 
 
 def upper_percentile(
@@ -115,14 +116,8 @@ def clean_data(df: pd.Series, columns):
     # Convert date to year-month e.g. 2025-01
     df["YearMonth"] = df[date_name].dt.to_period("M")
 
-    # Fix the MSISDN format
-    df['MSISDN'] = df[user_id].astype(float).astype(int).astype(str)
-    mask = (
-        (df['MSISDN'].str.len() == 10) &
-        (~df['MSISDN'].str.startswith('98'))
-    )
-    
-    df.loc[mask, 'MSISDN'] = '98' + df.loc[mask, 'MSISDN']
+    df["MSISDN"] = normalize_identifiers(df[user_id])
+    df = df.dropna(subset=["MSISDN"]).copy()
 
     if "OrderStatusId" in columns:
         # Select users with successful order

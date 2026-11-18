@@ -28,7 +28,7 @@ def test_custom_columns_preserve_status_identifiers_and_deduplication(tmp_path):
         assert first['order']['stored_events'] == second['order']['stored_events'] == 2
         with sqlite3.connect(monthly.ROOT / 'history.sqlite') as database:
             rows = database.execute('SELECT customer, value, successful FROM events WHERE source="order" ORDER BY value').fetchall()
-        assert rows == [('0001', 17, 1), ('0001', 19, 0)]
+        assert rows == [('980001', 17, 1), ('980001', 19, 0)]
         # Correcting an event with a custom event ID updates it rather than adding it.
         frame = pd.read_csv(paths['order'], dtype={'customer': str})
         frame.loc[0, 'amount'] = 23

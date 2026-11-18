@@ -4,6 +4,7 @@ from ..progress import stage, stage_call, units, stage_scope
 
 Independent churn inference supplies its own storage root. No adaptive model lifecycle lives here.
 """
+from ..identifiers import normalize_identifiers
 from pathlib import Path
 from collections import Counter
 import hashlib
@@ -48,14 +49,11 @@ def write_json(path, value):
     temporary.replace(path)
 
 
-# Preserve the legacy rule that removes the first two identifier characters.
+# Share exactly the same identifiers as scoring and temporal stability.
 def normalize_ids(values):
-    # Preserve the supplied cleaners' string-ID rule. Do not silently change it.
-    result = values.astype("string").str[2:]
-    if result.isna().any() or result.str.strip().eq("").any():
-        raise ValueError(
-            "Legacy removal of the first two ID characters produced an empty ID. Check source identifiers."
-        )
+    result = normalize_identifiers(values)
+    if result.isna().any():
+        raise ValueError("Every event needs a nonempty customer identifier.")
     return result
 
 

@@ -6,10 +6,11 @@ import shutil
 import joblib
 import pandas as pd
 from ..common import OUTPUT_ROOT, json_safe
+from ..identifiers import VERSION as IDENTIFIER_VERSION
 from ..progress import stage, stage_call
 from . import monthly, retention
 
-ROOT = OUTPUT_ROOT / "churn"
+ROOT = OUTPUT_ROOT / "churn" / IDENTIFIER_VERSION
 
 
 @stage("Update churn predictions")
@@ -41,7 +42,7 @@ def update(payload):
     report = {"run_id": run_id, "as_of_month": str(month), "predicting_month": str(month + 3),
               "retention_version": retention.VERSION, "learning": model_report,
               "customers": len(predictions), "retention_counts": predictions.retention_status.value_counts().to_dict(),
-              "ingestion": ingestion, "workflow": "independent_churn",
+              "ingestion": ingestion, "workflow": "independent_churn", "identifier_version": IDENTIFIER_VERSION,
               "download_url": f"/churn/runs/{run_id}/customers", "report_download_url": f"/churn/runs/{run_id}/report"}
     monthly.write_json(run_dir / "report.json", report)
     if not active_path.exists() and (run_dir / "retention_model.pkl").exists():

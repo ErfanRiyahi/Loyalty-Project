@@ -128,5 +128,9 @@ def download_churn_run(run_id, kind):
         return jsonify(error="Unknown churn output."), 404
     path = ROOT / "runs" / run_id / ("retention.csv" if kind == "customers" else "report.json")
     if not path.is_file():
-        return jsonify(error="Churn output not found."), 404
+        # Historical reports remain downloadable after the identifier-policy upgrade.
+        legacy = common.OUTPUT_ROOT / "churn" / "runs" / run_id / path.name
+        if not legacy.is_file():
+            return jsonify(error="Churn output not found."), 404
+        path = legacy
     return send_file(path, as_attachment=True)
