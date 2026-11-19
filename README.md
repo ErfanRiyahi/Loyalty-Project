@@ -58,7 +58,7 @@ Current acceptance policy requires positive silhouette, three clusters each with
 
 Rejected candidates are archived without overwriting active predictions or pointers. Accepted candidates record input hashes, comparison metrics, policy, period and versioned model/output artifacts. The Clustering page then uses the active model's `predict` operation instead of fitting it again; optional stability refits are diagnostic only. Rollback swaps the active/previous model pointers and restores the previous version's saved segmentation/report. Rerun clustering for predictions on newer scores after a rollback. The UI displays the active version and rollback availability.
 
-Evaluate once new period scores are available; the application performs the comparison and promotion automatically within that run. No unattended calendar scheduler is installed. Adaptive artifacts live under `outputs/adaptive`, independent churn history/models under `outputs/churn`, and immutable clustering model versions under `outputs/models`.
+Evaluate once new period scores are available; the application performs the comparison and promotion automatically within that run. No unattended calendar scheduler is installed. Adaptive artifacts live under `outputs/adaptive`, independent churn models/results under `outputs/churn`, and immutable clustering model versions under `outputs/models`.
 
 API routes: `/adaptive/update`, `/adaptive/status`, `/adaptive/rollback`, `/adaptive/download`, `/adaptive/report`; `/churn/update`, `/churn/customers` and their download routes are independent. Legacy `/monthly/update` and `/monthly/status` now alias adaptive clustering and require the new scored-input payload, not raw churn feeds.
 
@@ -92,13 +92,20 @@ Scoring, Consistency Index, Temporal Stability and churn ingestion all use `loya
 
 The development notebook and tracked utility checkpoint delegate to this shared policy as well. Consistency diagnostics describe the current policy.
 
-After upgrading, regenerate every score output (including Temporal Stability and Consistency Index) before clustering, so old and new identifier formats are not mixed. Churn history/models now live under `outputs/churn/msisdn-v2`; the old `outputs/churn` history/models/reports are retained but are not merged or reused, because truncated IDs cannot be reliably reconstructed. Run Update predictions with the original historical sources to initialize the new history/model. Existing immutable historical churn download links still resolve to the archived reports.
+After upgrading, regenerate every score output (including Temporal Stability and Consistency Index) before clustering, so old and new identifier formats are not mixed. Churn models/results live under `outputs/churn/msisdn-v2`; old histories/models/reports are retained. The current CSV-only workflow ignores any old SQLite history. Run Update predictions with complete historical CSV snapshots; existing compatible models can be reused. Existing immutable historical churn download links still resolve to the archived reports.
 
 
 ## Single-file churn prediction pipeline
 
 Read `loyalty/services/churn_prediction.py` for the complete prediction algorithm. Its seven public stages are `load_data`, `build_monthly_activity`, `build_features`, `build_labels`, `load_or_train_model`, `predict_customers`, and `run_prediction`. Start with `run_prediction` to follow the execution order. The HTTP route calls it directly; prediction logic is not delegated across the old service modules.
 
-The old `monthly.py`, `retention.py`, and `forecasting.py` are thin compatibility adapters only. Generic JSON persistence moved to `common.py`, which adaptive clustering uses independently. Storage paths, API response shape, feature/model versions, learned model artifacts, risk thresholds and all existing output columns are preserved. A saved compatible model is read without retraining. This reorganization does not require rebuilding the current model/history.
+The old `monthly.py`, `retention.py`, and `forecasting.py` are thin compatibility adapters only. Generic JSON persistence moved to `common.py`, which adaptive clustering uses independently. Storage paths, model feature/version compatibility, learned model artifacts, risk thresholds and customer-list columns are preserved. CSV-input counts replace the old ingestion-state report; unused financial export columns have been removed. A saved compatible model is read without retraining. This reorganization does not require rebuilding the current model/history.
 
 A Persian presentation walkthrough is available in [docs/CHURN_PREDICTION_FA.md](docs/CHURN_PREDICTION_FA.md). It explains each function's inputs/outputs and distinguishes data preparation, historical labels, `fit`, `predict_proba`, and fixed risk bands.
+
+
+## Simple CSV-to-DataFrame workflow
+
+`orders, internet, calls = load_data(paths, columns=None)` now returns three ordinary pandas DataFrames, keeping the selected source columns and string identifiers. It performs no database writes or hidden history merging. `build_monthly_activity(orders, internet, calls, as_of, columns=None)` receives those tables directly, filters invalid rows/unsuccessful orders, normalizes identifiers and builds the customer-month panel. When supplied, an order event ID deduplicates that CSV by ID, retaining the last record; unkeyed data/voice multiplicity is preserved.
+
+Each request must provide the complete historical CSV snapshots needed for that run. Repeating a request cannot accumulate transactions, and replacing the input population replaces the result population. Historical SQLite files are retained but never opened by prediction. Saved compatible models and result archives remain usable. The report includes `input_mode: complete_csv_snapshot` and `input_rows`, instead of the old persistent ingestion counters. The model's 17 inputs and three-month labels/risk rules remain unchanged. Raw activity summaries needed for explanations are kept; unused ARPU/spend/growth summaries have been removed from the internal export.

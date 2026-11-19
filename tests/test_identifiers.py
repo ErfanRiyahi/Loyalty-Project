@@ -56,7 +56,8 @@ def test_churn_uses_a_separate_versioned_history_without_rewriting_legacy(tmp_pa
         path=tmp_path/(key+'.csv');pd.DataFrame(rows,columns=columns).to_csv(path,index=False);sources[key]=str(path)
     result=forecasting.run_prediction({'as_of_month':'2024-09','confirm_complete':True,'sources':sources})
     assert result['identifier_version']==VERSION
-    assert (parent/VERSION/'history.sqlite').is_file()
+    assert not (parent/VERSION/'history.sqlite').exists()
+    assert result['input_mode']=='complete_csv_snapshot'
     for name in ['history.sqlite','active_model.pkl','latest_report.json']:assert (parent/name).read_bytes()==b'legacy state'
 
 

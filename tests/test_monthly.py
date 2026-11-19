@@ -35,7 +35,7 @@ class MonthlyTests(unittest.TestCase):
             first=forecasting.run_prediction(payload)
             second=forecasting.run_prediction(payload)
             for source in monthly.SOURCES:
-                self.assertEqual(first['ingestion'][source]['stored_events'],second['ingestion'][source]['stored_events'])
+                self.assertEqual(first['input_rows'][source],second['input_rows'][source])
             payload['as_of_month']='2025-09'
             third=forecasting.run_prediction(payload)
             self.assertEqual(third['learning']['status'],'insufficient_training_data')
