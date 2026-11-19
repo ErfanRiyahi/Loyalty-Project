@@ -2,7 +2,6 @@
  <div class="panel">
   <h2>مشتریان در معرض ریزش</h2>
   <p>ریزش یعنی سه ماه متوالی بدون خرید موفق، مصرف اینترنت یا مکالمه در منابع ثبت‌شده. پیش‌بینی مستقل از یادگیری تطبیقی خوشه‌بندی انجام می‌شود.</p>
-<p>در هر اجرا، هر سه CSV باید کل بازهٔ تاریخی موردنیاز را داشته باشند؛ داده‌های اجرای قبلی به فایل‌ها اضافه نمی‌شوند.</p>
 <label for="churnMonth">آخرین ماه کامل مشاهده (سال و ماه میلادی)</label>
 <input id="churnMonth" type="month">
 {% for source, field, standard, title in [('order', 'churnOrder', 'ARPU_CLV_GROWTH', 'خریدها'), ('data_cdr', 'churnData', 'DATA_USAGE', 'مصرف اینترنت'), ('voice_cdr', 'churnVoice', 'VOICE_USAGE', 'مکالمه')] %}

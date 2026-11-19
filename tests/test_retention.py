@@ -5,7 +5,7 @@ from unittest.mock import patch
 import numpy as np
 import pandas as pd
 from loyalty import create_app
-from loyalty.services import monthly, retention, churn_prediction as forecasting
+from loyalty.services import monthly, retention, forecasting
 
 
 def test_three_month_target_and_incomplete_followup():

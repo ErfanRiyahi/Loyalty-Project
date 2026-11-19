@@ -2,13 +2,38 @@ from ..progress import stage, stage_call, units, stage_scope
 import pandas as pd
 import numpy as np
 from . import utils
-from ..identifiers import POLICY_DESCRIPTION
 
 
 # Apply existing cleaning rules, including identifier conversion and filtering.
 @stage("Clean data and convert types")
 def clean_data(df, columns):
     user_id, date_name, usage_name = columns
+
+    # Convert data to right format
+    # df[date_name] = pd.to_datetime(df[date_name])
+    # df[usage_name] = pd.to_numeric(df[usage_name])
+
+    # # Remove rows with nan datetime
+    # df = df.dropna().copy()
+
+    # # Fix the MSISDN format
+    # if df[user_id].dtype == 'float64':
+    #     df[user_id] = df[user_id].astype('Int64').astype('string')
+    # else:
+    #     df['MSISDN'] = df[user_id].astype('string').str[2:]
+
+    # # Calculate percentile 99 and 1 and use it as the maximum and minimum value
+    # p1 = np.percentile(df[usage_name], 1)
+    # p99 = np.percentile(df[usage_name], 99)
+
+    # df_winsorized = df[df[usage_name].between(p1, p99)]
+
+    # max_date = df_winsorized[date_name].max()
+    # six_months_ago = max_date - pd.DateOffset(months=5)
+
+    # # Select the data within recent 6 months
+    # df_6m = df_winsorized[df_winsorized[date_name] >= six_months_ago].copy()
+    # df_6m['YearMonth'] = df_6m[date_name].dt.to_period('M')
 
     # Clean dataset
     df_cleaned = utils.clean_data(df, columns)
@@ -205,5 +230,5 @@ def consistency_index(
                    "pairwise_common_customers": [{"first": first, "second": second, "count": len(customers[first] & customers[second])}
                         for index, first in enumerate(customers) for second in list(customers)[index+1:]],
                    "warnings": warnings,
-                   "identifier_policy": POLICY_DESCRIPTION}
+                   "identifier_policy": "رفتار فعلی پاک‌سازی: دو کاراکتر اول شناسه‌های متنی حذف می‌شود؛ قالب شناسه‌ها در همهٔ منابع باید یکسان باشد."}
     return result, diagnostics

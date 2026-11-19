@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 from loyalty import create_app, common
 from loyalty.services.profiling import profile_dataset
-from loyalty.services import clustering, monthly, churn_prediction as forecasting
+from loyalty.services import clustering, monthly, forecasting
 from loyalty.routes import scoring, clustering as clustering_routes, churn
 
 

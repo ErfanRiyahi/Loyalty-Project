@@ -1,7 +1,5 @@
 // Translate display text only; keep API keys and column names unchanged.
 const persianLabels = {
-  "Read churn CSV files": "خواندن سه فایل CSV",
-  "Build monthly activity from CSV": "ساخت فعالیت ماهانه از فایل‌ها",
   "Update churn predictions": "به‌روزرسانی پیش‌بینی ریزش",
   "Evaluate adaptive clustering candidate": "ارزیابی مدل جدید خوشه‌بندی",
   "Inspect dataset": "بررسی داده‌ها",
@@ -140,14 +138,6 @@ function persianLabel(value) {
     data_cdr: "اینترنت",
     voice_cdr: "مکالمه",
   };
-  if (text.startsWith("Read CSV source ")) {
-    const source = text.slice("Read CSV source ".length);
-    return "خواندن فایل " + (sourceNames[source] || source);
-  }
-  if (text.endsWith(": rows read")) {
-    const source = text.split(":")[0];
-    return (sourceNames[source] || source) + ": ردیف‌های خوانده‌شده";
-  }
   if (text.startsWith("Ingest and clean source ")) {
     const source = text.slice("Ingest and clean source ".length);
     return "ورود و پاک‌سازی منبع " + (sourceNames[source] || source);

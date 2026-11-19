@@ -10,7 +10,7 @@ from . import clustering
 from .validation import validate_clusters
 from ..common import OUTPUT_ROOT, json_safe
 from ..progress import stage
-from ..common import write_json
+from .monthly import write_json
 
 ROOT = OUTPUT_ROOT / "adaptive"
 POLICY = {"minimum_silhouette": 0.0, "minimum_cluster_share": 0.02,
