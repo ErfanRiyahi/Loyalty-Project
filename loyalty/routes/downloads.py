@@ -123,7 +123,7 @@ def install(application):
 
 @app.get("/churn/runs/<run_id>/<kind>")
 def download_churn_run(run_id, kind):
-    from ..services.forecasting import ROOT
+    from ..services.churn_prediction import ROOT
     if not re.fullmatch(r"\d{8}_\d{6}(?:_\d{6})?", run_id) or kind not in ["customers", "report"]:
         return jsonify(error="Unknown churn output."), 404
     path = ROOT / "runs" / run_id / ("retention.csv" if kind == "customers" else "report.json")

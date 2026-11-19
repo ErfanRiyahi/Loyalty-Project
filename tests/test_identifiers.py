@@ -2,7 +2,7 @@ import pandas as pd
 import pytest
 from loyalty.identifiers import normalize_identifiers, VERSION
 from loyalty.standards import utils, temporal_stability
-from loyalty.services import monthly, forecasting
+from loyalty.services import monthly, churn_prediction as forecasting
 
 
 @pytest.mark.parametrize('value',[
@@ -54,7 +54,7 @@ def test_churn_uses_a_separate_versioned_history_without_rewriting_legacy(tmp_pa
     for key,columns in specs.items():
         rows=[['9121234567',str(month)+'-15',100]+([30] if key=='order' else []) for month in pd.period_range('2024-01','2024-09',freq='M')]
         path=tmp_path/(key+'.csv');pd.DataFrame(rows,columns=columns).to_csv(path,index=False);sources[key]=str(path)
-    result=forecasting.update({'as_of_month':'2024-09','confirm_complete':True,'sources':sources})
+    result=forecasting.run_prediction({'as_of_month':'2024-09','confirm_complete':True,'sources':sources})
     assert result['identifier_version']==VERSION
     assert (parent/VERSION/'history.sqlite').is_file()
     for name in ['history.sqlite','active_model.pkl','latest_report.json']:assert (parent/name).read_bytes()==b'legacy state'

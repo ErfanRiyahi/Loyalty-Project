@@ -93,3 +93,12 @@ Scoring, Consistency Index, Temporal Stability and churn ingestion all use `loya
 The development notebook and tracked utility checkpoint delegate to this shared policy as well. Consistency diagnostics describe the current policy.
 
 After upgrading, regenerate every score output (including Temporal Stability and Consistency Index) before clustering, so old and new identifier formats are not mixed. Churn history/models now live under `outputs/churn/msisdn-v2`; the old `outputs/churn` history/models/reports are retained but are not merged or reused, because truncated IDs cannot be reliably reconstructed. Run Update predictions with the original historical sources to initialize the new history/model. Existing immutable historical churn download links still resolve to the archived reports.
+
+
+## Single-file churn prediction pipeline
+
+Read `loyalty/services/churn_prediction.py` for the complete prediction algorithm. Its seven public stages are `load_data`, `build_monthly_activity`, `build_features`, `build_labels`, `load_or_train_model`, `predict_customers`, and `run_prediction`. Start with `run_prediction` to follow the execution order. The HTTP route calls it directly; prediction logic is not delegated across the old service modules.
+
+The old `monthly.py`, `retention.py`, and `forecasting.py` are thin compatibility adapters only. Generic JSON persistence moved to `common.py`, which adaptive clustering uses independently. Storage paths, API response shape, feature/model versions, learned model artifacts, risk thresholds and all existing output columns are preserved. A saved compatible model is read without retraining. This reorganization does not require rebuilding the current model/history.
+
+A Persian presentation walkthrough is available in [docs/CHURN_PREDICTION_FA.md](docs/CHURN_PREDICTION_FA.md). It explains each function's inputs/outputs and distinguishes data preparation, historical labels, `fit`, `predict_proba`, and fixed risk bands.

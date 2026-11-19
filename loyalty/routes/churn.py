@@ -112,18 +112,18 @@ def download():
 
 def retention_frame():
     """Read one immutable run, never interpret a legacy decline model as churn."""
-    from ..services import forecasting, retention
+    from ..services import churn_prediction
     import re
-    report_path = forecasting.ROOT / "latest_report.json"
+    report_path = churn_prediction.ROOT / "latest_report.json"
     if not report_path.is_file():
         raise ValueError("ابتدا پیش‌بینی ریزش را با فایل‌های کامل به‌روز کنید.")
     report = json.loads(report_path.read_text(encoding="utf-8"))
-    if report.get("retention_version") != retention.VERSION:
+    if report.get("retention_version") != churn_prediction.MODEL_VERSION:
         raise ValueError("نتایج قبلی مربوط به تعریف قدیمی افت فعالیت است؛ پیش‌بینی ریزش را دوباره اجرا کنید.")
     run = report.get("run_id", "")
     if not re.fullmatch(r"\d{8}_\d{6}(?:_\d{6})?", run):
         raise ValueError("شناسهٔ گزارش معتبر نیست؛ پیش‌بینی ریزش را دوباره اجرا کنید.")
-    frame = pd.read_csv(forecasting.ROOT / "runs" / run / "retention.csv", dtype={"MSISDN": "string"})
+    frame = pd.read_csv(churn_prediction.ROOT / "runs" / run / "retention.csv", dtype={"MSISDN": "string"})
     order = {"at_risk": 0, "churned": 1, "review": 2, "low": 3}
     frame["_order"] = frame.retention_status.map(order)
     frame = frame.sort_values(["_order", "churn_probability", "consecutive_inactive_months", "MSISDN"],
@@ -186,8 +186,8 @@ def customer_download():
 
 @app.post("/churn/update")
 def update_forecast():
-    from ..services.forecasting import update
+    from ..services.churn_prediction import run_prediction
     try:
-        return jsonify(update(request.get_json() or {}))
+        return jsonify(run_prediction(request.get_json() or {}))
     except (ValueError, FileNotFoundError) as exc:
         return jsonify(error=str(exc)), 400

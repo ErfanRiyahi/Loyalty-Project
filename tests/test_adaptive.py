@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from loyalty import create_app, common
-from loyalty.services import adaptive, clustering, forecasting, retention
+from loyalty.services import adaptive, clustering, churn_prediction as forecasting, retention
 from loyalty.routes import clustering as routes
 
 

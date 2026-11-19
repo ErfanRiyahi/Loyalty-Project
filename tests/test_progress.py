@@ -106,7 +106,7 @@ def test_upload_and_api_failures():
 
 
 def test_monthly_job_reports_processed_rows_and_real_model_stages(tmp_path):
-    from loyalty.services import forecasting
+    from loyalty.services import churn_prediction as forecasting
     orders=[];data=[];voice=[]
     for index,month in enumerate(pd.period_range('2024-01','2024-09',freq='M')):
         for customer in range(12):

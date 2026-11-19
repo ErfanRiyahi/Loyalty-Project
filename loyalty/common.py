@@ -243,3 +243,12 @@ def score_distributions(frame):
         and pd.api.types.is_numeric_dtype(frame[column])
     ]
     return {column: compute_score_stats(frame, column) for column in columns}
+
+
+@stage("Save report and state")
+def write_json(path, value):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps(json_safe(value), indent=2, allow_nan=False))
+    temporary.replace(path)
